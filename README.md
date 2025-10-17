@@ -27,6 +27,18 @@ Premium Human:  $0.0005 per API call (2000x cheaper)
 
 ---
 
+## 📱 Marketplace Preview
+
+![Selfx402 Marketplace](Media/Selfx402App.png)
+
+*The Selfx402 marketplace where consumers discover and access services with proof-of-human discounts*
+
+![Marketplace Interface](Media/Marketplace.png)
+
+*Service catalog and vendor listings with tiered pricing visualization*
+
+---
+
 ## 🏗️ Architecture Overview
 
 ```mermaid
