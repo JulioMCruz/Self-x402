@@ -1,0 +1,46 @@
+# =============================================================================
+# Test Environment Variables
+# =============================================================================
+#
+# Copy this to test-env.local and fill in your test wallet details
+# IMPORTANT: test-env.local is gitignored - never commit real private keys!
+#
+# =============================================================================
+
+# Test Wallet Configuration (Celo Sepolia)
+# IMPORTANT: Use a TEST wallet with small amounts only!
+TEST_WALLET_PRIVATE_KEY=0xYourPrivateKeyHere
+TEST_WALLET_ADDRESS=0xYourWalletAddressHere
+
+# API Configuration
+API_BASE_URL=http://localhost:54112
+FACILITATOR_URL=http://localhost:3005
+
+# Payment Configuration
+PAYMENT_AMOUNT_USD=0.001
+NETWORK=celo-sepolia
+
+# =============================================================================
+# SETUP INSTRUCTIONS
+# =============================================================================
+#
+# 1. Create a test wallet:
+#    - Use MetaMask or any wallet to create a NEW test wallet
+#    - NEVER use your main wallet for testing!
+#    - Export the private key (Settings > Show private key)
+#
+# 2. Get test funds:
+#    - Visit: https://faucet.celo.org/
+#    - Get testnet CELO
+#    - Swap some CELO for USDC on Uniswap or similar
+#    - USDC Contract: 0x01C5C0122039549AD1493B8220cABEdD739BC44E
+#
+# 3. Copy this file:
+#    cp test-env.example test-env.local
+#
+# 4. Fill in your test wallet details in test-env.local
+#
+# 5. Run tests:
+#    npm run test:celo
+#
+# =============================================================================
