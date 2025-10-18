@@ -17,11 +17,13 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
+  Menu,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import Link from "next/link"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 // Mock data for charts
 const revenueData = [
@@ -80,6 +82,7 @@ const services = [
 
 export default function VendorDashboard() {
   const [timeRange, setTimeRange] = useState("30d")
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const stats = [
     {
@@ -122,11 +125,11 @@ export default function VendorDashboard() {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4 md:gap-8">
               <Link href="/" className="flex items-center gap-2">
-                <img src="/images/selfx402-logo.png" alt="Selfx402" className="h-8" />
+                <img src="/images/selfx402-logo.png" alt="Selfx402" className="h-7 md:h-8" />
               </Link>
-              <nav className="hidden md:flex items-center gap-6">
+              <nav className="hidden lg:flex items-center gap-6">
                 <Link href="/vendor/dashboard" className="text-sm font-medium text-foreground">
                   Dashboard
                 </Link>
@@ -150,31 +153,90 @@ export default function VendorDashboard() {
                 </Link>
               </nav>
             </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
+            <div className="flex items-center gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent">
+                <Download className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Export</span>
               </Button>
-              <Button size="sm" asChild>
+              <Button size="sm" asChild className="hidden sm:flex">
                 <Link href="/vendor/services/new">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Service
+                  <Plus className="h-4 w-4 md:mr-2" />
+                  <span className="hidden md:inline">Add Service</span>
                 </Link>
               </Button>
+
+              {/* Mobile Menu */}
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild className="lg:hidden">
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[300px]">
+                  <nav className="flex flex-col gap-4 mt-8">
+                    <Link
+                      href="/vendor/dashboard"
+                      className="text-lg font-medium hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/vendor/services"
+                      className="text-lg font-medium hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Services
+                    </Link>
+                    <Link
+                      href="/vendor/analytics"
+                      className="text-lg font-medium hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Analytics
+                    </Link>
+                    <Link
+                      href="/vendor/payouts"
+                      className="text-lg font-medium hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Payouts
+                    </Link>
+                    <div className="pt-4 border-t border-border space-y-2">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-transparent"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                      <Button className="w-full" asChild onClick={() => setMobileMenuOpen(false)}>
+                        <Link href="/vendor/services/new">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Service
+                        </Link>
+                      </Button>
+                    </div>
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6 md:py-8">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-balance">Vendor Dashboard</h1>
-          <p className="text-muted-foreground">Monitor your API services performance and revenue</p>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-balance">Vendor Dashboard</h1>
+          <p className="text-muted-foreground text-sm md:text-base">
+            Monitor your API services performance and revenue
+          </p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6 md:mb-8">
           {stats.map((stat) => (
             <Card key={stat.title}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -198,11 +260,11 @@ export default function VendorDashboard() {
         </div>
 
         {/* Charts Section */}
-        <div className="grid gap-6 lg:grid-cols-2 mb-8">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 mb-6 md:mb-8">
           {/* Revenue Chart */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle>Revenue Overview</CardTitle>
                   <CardDescription>Monthly revenue and API calls</CardDescription>
@@ -224,7 +286,7 @@ export default function VendorDashboard() {
                     color: "hsl(var(--primary))",
                   },
                 }}
-                className="h-[300px]"
+                className="h-[250px] md:h-[300px]"
               >
                 <AreaChart data={revenueData}>
                   <defs>
@@ -264,7 +326,7 @@ export default function VendorDashboard() {
                     color: "hsl(var(--primary))",
                   },
                 }}
-                className="h-[300px]"
+                className="h-[250px] md:h-[300px]"
               >
                 <BarChart data={trafficData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -293,9 +355,9 @@ export default function VendorDashboard() {
         </div>
 
         {/* Services Table */}
-        <Card>
+        <Card className="mb-6 md:mb-8">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle>Your Services</CardTitle>
                 <CardDescription>Manage and monitor your API services</CardDescription>
@@ -310,18 +372,18 @@ export default function VendorDashboard() {
               {services.map((service) => (
                 <div
                   key={service.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-4 flex-1">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-semibold">{service.name}</h3>
                         <Badge variant={service.status === "active" ? "default" : "secondary"}>{service.status}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">{service.category}</p>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-8">
+                    <div className="grid grid-cols-2 md:flex md:items-center gap-4 md:gap-8">
                       <div className="text-center">
                         <div className="text-sm font-medium">{service.calls.toLocaleString()}</div>
                         <div className="text-xs text-muted-foreground">Calls</div>
@@ -364,9 +426,9 @@ export default function VendorDashboard() {
         </Card>
 
         {/* Wallet Section */}
-        <Card className="mt-8">
+        <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Wallet className="h-5 w-5" />
@@ -382,10 +444,10 @@ export default function VendorDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2 mb-6">
-              <span className="text-4xl font-bold">$12,428.50</span>
+              <span className="text-3xl md:text-4xl font-bold">$12,428.50</span>
               <span className="text-muted-foreground">USDC</span>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground mb-1">Pending</div>
                 <div className="text-xl font-semibold">$1,240.00</div>
