@@ -42,7 +42,7 @@ export default function UserDashboard() {
       vendor: "OpenAI",
       category: "AI/ML",
       status: "active",
-      apiKey: "sk_live_abc123...xyz789", // Mock API key for demo - not real
+      apiKey: "sk_live_abc123...xyz789",
       usage: 45230,
       limit: 100000,
       humanPrice: 0.03,
@@ -157,15 +157,15 @@ export default function UserDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between mb-4">
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">My Dashboard</h1>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">My Dashboard</h1>
               <p className="text-muted-foreground">Welcome back, {user.name}</p>
             </div>
-            <div className="text-right">
+            <div className="md:text-right">
               {user.verified ? (
                 <div className="flex items-center gap-2 text-primary">
                   <CheckCircle2 className="h-5 w-5" />
@@ -175,7 +175,7 @@ export default function UserDashboard() {
                   </div>
                 </div>
               ) : (
-                <Button variant="outline" className="gap-2 bg-transparent">
+                <Button variant="outline" className="gap-2 bg-transparent w-full md:w-auto">
                   <AlertCircle className="h-4 w-4" />
                   Verify Now
                 </Button>
@@ -185,7 +185,7 @@ export default function UserDashboard() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 md:mb-8">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Services</CardTitle>
@@ -232,7 +232,7 @@ export default function UserDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="services">My Services</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
             <TabsTrigger value="api-keys">API Keys</TabsTrigger>
@@ -243,10 +243,10 @@ export default function UserDashboard() {
             {purchasedServices.map((service) => (
               <Card key={service.id}>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <CardTitle className="text-xl">{service.name}</CardTitle>
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <CardTitle className="text-lg md:text-xl">{service.name}</CardTitle>
                         <Badge
                           variant={service.status === "active" ? "default" : "secondary"}
                           className={service.status === "active" ? "bg-primary" : ""}
@@ -258,7 +258,7 @@ export default function UserDashboard() {
                         by {service.vendor} • {service.category}
                       </CardDescription>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left md:text-right">
                       <div className="text-2xl font-bold text-primary">${service.humanPrice}</div>
                       <div className="text-xs text-muted-foreground line-through">${service.botPrice}</div>
                       <div className="text-xs text-primary font-semibold">
@@ -279,8 +279,7 @@ export default function UserDashboard() {
                     <Progress value={(service.usage / service.limit) * 100} />
                   </div>
 
-                  {/* Service Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <div>
@@ -299,7 +298,7 @@ export default function UserDashboard() {
                       <Key className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <div className="text-xs text-muted-foreground">API Key</div>
-                        <div className="text-sm font-mono">{service.apiKey.slice(0, 12)}...</div>
+                        <div className="text-sm font-mono truncate max-w-[100px]">{service.apiKey.slice(0, 12)}...</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -311,8 +310,7 @@ export default function UserDashboard() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
                     <Button variant="outline" size="sm" className="gap-2 bg-transparent">
                       <ExternalLink className="h-4 w-4" />
                       View Docs
@@ -348,10 +346,10 @@ export default function UserDashboard() {
                   {transactions.map((transaction) => (
                     <div
                       key={transaction.id}
-                      className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <CreditCard className="h-5 w-5 text-primary" />
                         </div>
                         <div>
@@ -361,7 +359,7 @@ export default function UserDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <div className="font-semibold">${transaction.amount.toFixed(2)}</div>
                         <Badge variant="outline" className="text-xs">
                           {transaction.status}
@@ -386,12 +384,14 @@ export default function UserDashboard() {
                   {purchasedServices.map((service) => (
                     <div
                       key={service.id}
-                      className="flex items-center justify-between p-4 border border-border rounded-lg"
+                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border border-border rounded-lg"
                     >
                       <div className="flex-1">
                         <div className="font-medium mb-1">{service.name}</div>
-                        <div className="flex items-center gap-2">
-                          <code className="text-sm bg-muted px-3 py-1 rounded font-mono">{service.apiKey}</code>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-sm bg-muted px-3 py-1 rounded font-mono break-all">
+                            {service.apiKey}
+                          </code>
                           <Button variant="ghost" size="sm" onClick={() => copyToClipboard(service.apiKey)}>
                             <Copy className="h-4 w-4" />
                           </Button>
