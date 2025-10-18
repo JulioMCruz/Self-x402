@@ -39,7 +39,76 @@ Premium Human:  $0.0005 per API call (2000x cheaper)
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ System Architecture
+
+### High-Level Component Architecture
+
+```mermaid
+graph TB
+    subgraph Client["CLIENT (Marketplace)"]
+        Consumer[👤 Consumer]
+        Browser[🌐 Browser/Web App]
+        SelfApp[📱 Self Mobile App]
+        Wallet[👛 Crypto Wallet]
+    end
+
+    subgraph SelfMiddleware["SELF PROTOCOL MIDDLEWARE"]
+        QRGen[📱 QR Code Generator<br/>@selfxyz/qrcode]
+        ProofCache[💾 Proof Cache<br/>localStorage/90 days]
+        ClientSDK[🔧 Client SDK<br/>@selfx402/client]
+    end
+
+    subgraph Facilitator["SELFX402 FACILITATOR"]
+        VerifyBackend[🔐 Verification Service<br/>@selfxyz/backend]
+        PaymentFacilitator[💳 Payment Service<br/>EIP-712/3009]
+        NullifierDB[(🗄️ Nullifier DB<br/>PostgreSQL)]
+    end
+
+    subgraph Vendors["VENDOR ENDPOINTS"]
+        VendorMiddleware[🛡️ Selfx402 Middleware<br/>@selfx402/express]
+        VendorAPI[🔌 Vendor API Logic]
+        VendorServices[⚙️ Services<br/>AI, Data, Compute]
+    end
+
+    subgraph Blockchain["CELO BLOCKCHAIN"]
+        SelfContract[📜 Self Verifier<br/>0xe57F...5BF]
+        USDCContract[💵 USDC Token<br/>0xcebA...118C]
+    end
+
+    Consumer -->|1. Browse| Browser
+    Browser -->|2. Request QR| QRGen
+    QRGen -->|3. Display QR| SelfApp
+    SelfApp -->|4. ZK Proof| ProofCache
+    ProofCache -->|5. Store 90d| Browser
+
+    Browser -->|6. API Request<br/>+ X-Self-Proof| VendorMiddleware
+    VendorMiddleware -->|7. Verify Proof| VerifyBackend
+    VerifyBackend -->|8. On-chain Check| SelfContract
+    VerifyBackend -->|9. Nullifier Check| NullifierDB
+    VerifyBackend -->|10. Tier Result| VendorMiddleware
+
+    VendorMiddleware -->|11. 402 Required| Browser
+    Browser -->|12. Sign Payment| Wallet
+    Wallet -->|13. EIP-712 Auth| PaymentFacilitator
+    PaymentFacilitator -->|14. Settle USDC| USDCContract
+    PaymentFacilitator -->|15. Proof| VendorMiddleware
+
+    Browser -->|16. Retry + Payment| VendorMiddleware
+    VendorMiddleware -->|17. Process| VendorAPI
+    VendorAPI -->|18. Execute| VendorServices
+    VendorServices -->|19. Response| Browser
+
+    style Client fill:#e3f2fd
+    style SelfMiddleware fill:#fff3e0
+    style Facilitator fill:#f3e5f5
+    style Vendors fill:#e8f5e9
+    style Blockchain fill:#fff9c4
+    style VerifyBackend fill:#ce93d8
+    style PaymentFacilitator fill:#ce93d8
+    style VendorMiddleware fill:#81c784
+```
+
+### Detailed Component Flow
 
 ```mermaid
 graph TB
