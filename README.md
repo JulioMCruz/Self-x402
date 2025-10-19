@@ -41,13 +41,19 @@ Premium Human:  $0.0005 per API call (2000x cheaper)
 
 ## 🏗️ System Architecture
 
+### Three-Component System
+
+1. **Selfx402Pay/** - Next.js consumer frontend with Self Protocol QR verification
+2. **Vendors/Places-x402-Api/** - Express.js vendor API with x402 payment middleware
+3. **Selfx402Facilitator/** - Payment verification and settlement service
+
 ### High-Level Component Architecture
 
 ```mermaid
 graph TB
-    subgraph Client["CLIENT (Marketplace)"]
+    subgraph Client["CLIENT (Selfx402Pay Frontend)"]
         Consumer[👤 Consumer]
-        Browser[🌐 Browser/Web App]
+        Browser[🌐 Next.js Web App]
         SelfApp[📱 Self Mobile App]
         Wallet[👛 Crypto Wallet]
     end
@@ -442,7 +448,16 @@ sequenceDiagram
 
 ## 🛠️ Tech Stack
 
-### Selfx402 Platform
+### Selfx402Pay (Consumer Frontend)
+
+- **Framework**: Next.js 14 with App Router
+- **UI Components**: Radix UI primitives with shadcn/ui
+- **Self Integration**: `@selfxyz/qrcode` for QR generation and verification
+- **Payment**: Ethers.js v6 for EIP-712 signing
+- **Styling**: Tailwind CSS 4 with custom theme
+- **State**: React hooks with localStorage caching
+
+### Selfx402 Platform (Backend)
 
 - **Verification Backend**: Node.js, Self Protocol SDK (`@selfxyz/backend`)
 - **Payment Facilitator**: TypeScript, Viem, EIP-712/3009
@@ -450,13 +465,20 @@ sequenceDiagram
 - **Cache**: Redis (proof caching, rate limiting)
 - **Blockchain**: Celo mainnet (Chain ID: 42220)
 
+### Vendor API (Example Implementation)
+
+- **Framework**: Express.js with TypeScript
+- **Middleware**: Custom Celo x402 payment middleware
+- **Tools**: Viem for blockchain interactions
+- **Testing**: Jest with end-to-end payment flow tests
+
 ### Integration Packages
 
-- **`@selfx402/express`**: Express.js middleware
-- **`@selfx402/next`**: Next.js API routes
-- **`@selfx402/client`**: Browser client (auto-payment)
-- **`@selfxyz/qrcode`**: Self QR code generation (frontend)
-- **`@selfxyz/backend`**: Self proof verification (backend)
+- **`@selfx402/express`**: Express.js middleware (planned)
+- **`@selfx402/next`**: Next.js API routes (planned)
+- **`@selfx402/client`**: Browser client (planned)
+- **`@selfxyz/qrcode`**: Self QR code generation (active)
+- **`@selfxyz/backend`**: Self proof verification (active)
 
 ---
 
