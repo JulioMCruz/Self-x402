@@ -25,10 +25,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-### Two-Component System
+### Three-Component System
 
-1. **Vendors/Places-x402-Api/** - Express.js API server with x402 micropayment middleware (example vendor implementation)
-2. **Selfx402Facilitator/** - Independent payment verification service
+1. **Selfx402Pay/** - Next.js consumer frontend with Self Protocol QR verification and payment UI
+2. **Vendors/Places-x402-Api/** - Express.js API server with x402 micropayment middleware (example vendor implementation)
+3. **Selfx402Facilitator/** - Independent payment verification service
 
 ### Key Design Decisions
 
@@ -47,6 +48,22 @@ User → QR Code → Self App → Passport NFC → ZK Proof → Store Locally �
 ---
 
 ## Development Commands
+
+### Selfx402Pay (Consumer Frontend)
+
+```bash
+# Development
+cd Selfx402Pay
+npm install              # Install dependencies
+npm run dev              # Start Next.js dev server (localhost:3000)
+
+# Production
+npm run build            # Next.js production build
+npm start                # Start production server
+
+# Code Quality
+npm run lint             # ESLint check
+```
 
 ### Vendors/Places-x402-Api (Example Vendor)
 
@@ -80,7 +97,7 @@ PORT=3005 npx tsx index.ts    # Start facilitator (required for API)
 npm run dev                    # Alternative start command
 ```
 
-### Running Both Services
+### Running All Services
 
 **Terminal 1 (Facilitator):**
 ```bash
@@ -94,7 +111,13 @@ cd Vendors/Places-x402-Api
 npm run dev
 ```
 
-**Terminal 3 (Test):**
+**Terminal 3 (Consumer Frontend):**
+```bash
+cd Selfx402Pay
+npm run dev
+```
+
+**Terminal 4 (Test Payment Flow):**
 ```bash
 cd Vendors/Places-x402-Api
 npm run test:celo
@@ -103,6 +126,18 @@ npm run test:celo
 ---
 
 ## Environment Configuration
+
+### Selfx402Pay/.env
+
+```bash
+# Self Protocol Configuration
+NEXT_PUBLIC_SELF_ENDPOINT=https://your-backend.ngrok.io/  # Public endpoint for verification (use ngrok for local dev)
+NEXT_PUBLIC_CONTRACT_ADDRESS=0x31Fd1f5bE57eB24DBe52411B8F37Ad749611821B  # Smart contract address (if applicable)
+NEXT_PUBLIC_SELF_APP_NAME="Self x402 Pay"
+NEXT_PUBLIC_SELF_SCOPE="self-x402-facilitator"  # Must match backend scope
+
+# Note: All variables prefixed with NEXT_PUBLIC_ are exposed to browser
+```
 
 ### Vendors/Places-x402-Api/.env
 
@@ -135,6 +170,109 @@ CELO_MAINNET_RPC_URL=https://forno.celo.org
 ---
 
 ## Core Architecture Concepts
+
+### 0. Selfx402Pay Frontend ([Selfx402Pay/](Selfx402Pay/))
+
+**Purpose**: Consumer-facing Next.js application demonstrating Self Protocol verification and x402 payment flows
+
+**Key Components**:
+
+#### Main Application ([app/page.tsx](Selfx402Pay/app/page.tsx))
+- Tabbed interface with Regular and Minimal payment forms
+- Self verification tab (commented out, available for testing)
+- Full UI built with shadcn/ui components
+
+#### Payment Form ([components/payment-form.tsx](Selfx402Pay/components/payment-form.tsx))
+**Features**:
+- Two-step workflow: (1) Scan QR for Self verification, (2) Sign payment transaction
+- Real-time verification status with visual feedback
+- Self Protocol QR code generation using `@selfxyz/qrcode`
+- Payment simulation (3-second processing delay)
+- Success screen with transaction details
+
+**Implementation Pattern**:
+```typescript
+// Initialize Self app
+const app = new SelfAppBuilder({
+  version: 2,
+  appName: "Self x402 Pay",
+  scope: "self-x402-facilitator",  // Must match backend
+  endpoint: "https://your-backend.ngrok.io/api/verify",
+  userId: address,
+  userIdType: "hex",
+  disclosures: {
+    minimumAge: 18,
+    ofac: false,
+    excludedCountries: []
+  }
+}).build();
+
+// Render QR code
+<SelfQRcodeWrapper
+  selfApp={selfApp}
+  onSuccess={handleVerificationSuccess}
+  onError={(e) => toast.error("Verification failed")}
+/>
+```
+
+#### Self Verification Component ([components/self-verification.tsx](Selfx402Pay/components/self-verification.tsx))
+**Features**:
+- Standalone Self Protocol verification demo
+- QR code display with universal link generation
+- Copy-to-clipboard and open-in-app functionality
+- User address display and verification info
+- Educational content about verification benefits
+
+**Key Exports**:
+- `SelfAppBuilder` - Configures Self Protocol integration
+- `SelfQRcodeWrapper` - React component for QR display
+- `getUniversalLink` - Generates deep link for Self mobile app
+- `countries` - Country exclusion list constants
+
+#### UI Components ([components/ui/](Selfx402Pay/components/ui/))
+- Complete shadcn/ui library integration
+- Radix UI primitives (accordion, dialog, popover, etc.)
+- Custom theme with dark mode support
+- Tailwind CSS 4 styling
+
+**Technology Stack**:
+- **Framework**: Next.js 14 with App Router
+- **Self SDK**: `@selfxyz/qrcode` (v1.0.15)
+- **Payments**: Ethers.js v6 (for future EIP-712 integration)
+- **UI**: Radix UI + shadcn/ui + Tailwind CSS 4
+- **State**: React hooks + localStorage caching
+- **Notifications**: Sonner toast library
+
+**Development Workflow**:
+1. User opens payment form
+2. QR code automatically generated on page load
+3. User scans with Self mobile app
+4. App reads passport NFC, generates ZK proof
+5. Proof sent to verification endpoint
+6. Success callback updates UI, enables payment button
+7. User clicks "Sign" to simulate payment
+8. Success screen shows transaction confirmation
+
+**Environment Variables** (see [Selfx402Pay/.env](Selfx402Pay/.env)):
+- `NEXT_PUBLIC_SELF_ENDPOINT` - Verification backend URL (must be public, use ngrok for local)
+- `NEXT_PUBLIC_SELF_APP_NAME` - Display name in Self app
+- `NEXT_PUBLIC_SELF_SCOPE` - Unique app identifier (must match backend)
+- `NEXT_PUBLIC_CONTRACT_ADDRESS` - Smart contract address (if applicable)
+
+**Testing**:
+1. Start Next.js dev server: `npm run dev`
+2. Access http://localhost:3000
+3. Select "Regular Version" or "Minimal Version" tab
+4. Scan QR code with Self mobile app (requires real passport)
+5. Complete verification flow
+6. Click "Sign" to test payment simulation
+
+**Planned Enhancements** (Phase 1B):
+- Real x402 payment integration (EIP-712 signing)
+- Connect to Selfx402Facilitator for actual settlements
+- Tiered pricing display based on verification status
+- Transaction history and receipt generation
+- Wallet connection (MetaMask, WalletConnect)
 
 ### 1. Custom Payment Middleware ([src/middleware/celo-payment-middleware.ts](Vendors/Places-x402-Api/src/middleware/celo-payment-middleware.ts:1))
 
@@ -240,6 +378,14 @@ CELO_MAINNET_RPC_URL=https://forno.celo.org
 ---
 
 ## Key Files to Understand
+
+### Consumer Frontend (Selfx402Pay)
+- [app/page.tsx](Selfx402Pay/app/page.tsx) - Main application with tabbed interface
+- [components/payment-form.tsx](Selfx402Pay/components/payment-form.tsx) - Two-step payment flow (verify + sign)
+- [components/self-verification.tsx](Selfx402Pay/components/self-verification.tsx) - Standalone Self verification demo
+- [components/payment-success.tsx](Selfx402Pay/components/payment-success.tsx) - Transaction success screen
+- [.env](Selfx402Pay/.env) - Environment configuration (Self endpoint, app name, scope)
+- [package.json](Selfx402Pay/package.json) - Dependencies including @selfxyz/qrcode
 
 ### Vendor API (Places Example)
 - [src/server.ts](Vendors/Places-x402-Api/src/server.ts:1) - Express app setup, middleware, endpoints
