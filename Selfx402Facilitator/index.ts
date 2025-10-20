@@ -16,6 +16,34 @@ dotenv.config();
 const selfService = new SelfVerificationService();
 
 const app = express();
+
+// CORS Configuration - Allow requests from frontend
+app.use((req, res, next) => {
+  // Allow requests from localhost (development) and ngrok domain
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'https://codalabs.ngrok.io'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Payment');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  next();
+});
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
