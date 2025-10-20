@@ -14,7 +14,7 @@ export const CELO_MAINNET: NetworkConfig = {
   chainId: 42220,
   name: "celo",
   usdcAddress: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
-  usdcName: "USD Coin",
+  usdcName: "USDC", // CRITICAL: Must match USDC contract's EIP-712 domain name
   rpcUrl: "https://forno.celo.org",
   blockExplorer: "https://celoscan.io",
   isTestnet: false,
@@ -24,7 +24,7 @@ export const CELO_SEPOLIA: NetworkConfig = {
   chainId: 11142220,
   name: "celo-sepolia",
   usdcAddress: "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
-  usdcName: "USD Coin",
+  usdcName: "USDC", // CRITICAL: Must match USDC contract's EIP-712 domain name
   rpcUrl: "https://celo-sepolia.g.alchemy.com",
   blockExplorer: "https://celo-sepolia.blockscout.com",
   isTestnet: true,

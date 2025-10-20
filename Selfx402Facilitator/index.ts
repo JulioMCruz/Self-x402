@@ -1,6 +1,6 @@
 import express, { type Request, type Response } from "express";
 import dotenv from "dotenv";
-import { createWalletClient, createPublicClient, http, type Address, recoverTypedDataAddress, publicActions } from "viem";
+import { createWalletClient, createPublicClient, http, type Address, recoverTypedDataAddress, publicActions, getAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { verify, settle } from "x402/facilitator";
 import { z } from "zod";
@@ -144,14 +144,48 @@ app.post("/api/verify", async (req, res) => {
     console.log("Verifying Self Protocol proof with attestationId:", attestationId)
     console.log("Proof:", proof)
     console.log("Public signals:", publicSignals)
-    console.log("User context data:", userContextData)
+    console.log("User context data (vendor URL):", userContextData)
+
+    // Fetch vendor's disclosure requirements from /.well-known/x402
+    let vendorDisclosures: any = null
+    try {
+      const vendorUrl = userContextData // This should be the vendor URL from frontend
+      console.log(`Fetching disclosure requirements from ${vendorUrl}/.well-known/x402...`)
+
+      const discoveryResponse = await fetch(`${vendorUrl}/.well-known/x402`)
+      if (discoveryResponse.ok) {
+        const discoveryData = await discoveryResponse.json()
+        vendorDisclosures = discoveryData.verification?.requirements
+        console.log("Vendor disclosure requirements:", vendorDisclosures)
+      } else {
+        console.warn("Failed to fetch vendor disclosure requirements, using defaults")
+      }
+    } catch (error) {
+      console.warn("Error fetching vendor disclosures, using defaults:", error)
+    }
+
+    // Create dynamic verifier with vendor's disclosure requirements
+    const verifierConfig = vendorDisclosures || {
+      minimumAge: 18,
+      excludedCountries: [],
+      ofac: false,
+    }
+
+    console.log("Creating SelfBackendVerifier with config:", verifierConfig)
+    const dynamicVerifier = new SelfBackendVerifier(
+      "self-x402-facilitator",
+      "https://codalabs.ngrok.io/api/verify",
+      false,
+      AllIds,
+      new DefaultConfigStore(verifierConfig),
+      "hex"
+    )
 
     console.log("Verifying with SelfBackendVerifier...");
 
-
     var result: any;
     try {
-     result = await selfBackendVerifier.verify(
+     result = await dynamicVerifier.verify(
         attestationId,
         proof,
         publicSignals,
@@ -342,9 +376,10 @@ app.post("/verify-celo", async (req: Request, res: Response) => {
       ],
     };
 
+    // IMPORTANT: Addresses must be checksummed for signature verification
     const message = {
-      from,
-      to,
+      from: getAddress(from),
+      to: getAddress(to),
       value: BigInt(value),
       validAfter: BigInt(validAfter),
       validBefore: BigInt(validBefore),
@@ -453,13 +488,14 @@ app.post("/settle-celo", async (req: Request, res: Response) => {
     console.log(`   Amount: ${authorization.value} (${Number(authorization.value) / 1_000_000} USDC)`);
 
     // Execute transferWithAuthorization on USDC contract
+    // IMPORTANT: Addresses must be checksummed
     const hash = await walletClient.writeContract({
       address: networkConfig.usdcAddress,
       abi: USDC_ABI,
       functionName: "transferWithAuthorization",
       args: [
-        authorization.from as Address,
-        authorization.to as Address,
+        getAddress(authorization.from),
+        getAddress(authorization.to),
         BigInt(authorization.value),
         BigInt(authorization.validAfter),
         BigInt(authorization.validBefore),
