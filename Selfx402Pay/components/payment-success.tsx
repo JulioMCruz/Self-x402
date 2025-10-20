@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
 interface PaymentSuccessProps {
   amount: string
   onReset?: () => void
+  txHash?: string
 }
 
-export default function PaymentSuccess({ amount, onReset }: PaymentSuccessProps) {
+export default function PaymentSuccess({ amount, onReset, txHash }: PaymentSuccessProps) {
   const [showCheck, setShowCheck] = useState(false)
   const [showContent, setShowContent] = useState(false)
 
@@ -25,6 +26,8 @@ export default function PaymentSuccess({ amount, onReset }: PaymentSuccessProps)
       clearTimeout(contentTimer)
     }
   }, [])
+
+  const explorerUrl = txHash ? `https://celoscan.io/tx/${txHash}` : null
 
   return (
     <div className="w-full max-w-md bg-card border-2 border-border rounded-3xl p-8 lg:p-12">
@@ -41,13 +44,13 @@ export default function PaymentSuccess({ amount, onReset }: PaymentSuccessProps)
 
         {/* Success Content */}
         <div
-          className={`space-y-4 transition-all duration-500 delay-300 ${
+          className={`space-y-4 transition-all duration-500 delay-300 w-full ${
             showContent ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}
         >
           <div className="space-y-2">
             <h1 className="text-3xl font-bold text-foreground">Payment Successful!</h1>
-            <p className="text-muted-foreground">Your transaction has been completed</p>
+            <p className="text-muted-foreground">Your transaction has been completed on Celo</p>
           </div>
 
           {/* Transaction Details */}
@@ -58,8 +61,21 @@ export default function PaymentSuccess({ amount, onReset }: PaymentSuccessProps)
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Status</span>
-              <span className="text-accent font-semibold">Confirmed</span>
+              <span className="text-accent font-semibold">Confirmed ✓</span>
             </div>
+            {txHash && (
+              <div className="pt-2 border-t border-border">
+                <a
+                  href={explorerUrl!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 text-sm text-accent hover:text-accent/80 transition-colors"
+                >
+                  View on CeloScan
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Logo */}
