@@ -1,19 +1,25 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle2, ExternalLink } from "lucide-react"
+import { CheckCircle2, ExternalLink, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import { toast } from "sonner"
 
 interface PaymentSuccessProps {
   amount: string
   onReset?: () => void
   txHash?: string
+  recipient?: string
+  payTo?: string
+  apiResponse?: any
 }
 
-export default function PaymentSuccess({ amount, onReset, txHash }: PaymentSuccessProps) {
+export default function PaymentSuccess({ amount, onReset, txHash, recipient, payTo, apiResponse }: PaymentSuccessProps) {
   const [showCheck, setShowCheck] = useState(false)
   const [showContent, setShowContent] = useState(false)
+  const [copiedTxHash, setCopiedTxHash] = useState(false)
+  const [copiedAddress, setCopiedAddress] = useState(false)
 
   useEffect(() => {
     // Animate checkmark first
@@ -28,6 +34,35 @@ export default function PaymentSuccess({ amount, onReset, txHash }: PaymentSucce
   }, [])
 
   const explorerUrl = txHash ? `https://celoscan.io/tx/${txHash}` : null
+  const addressExplorerUrl = payTo ? `https://celoscan.io/address/${payTo}` : null
+
+  // Format transaction hash for display (first 6 + last 4 characters)
+  const formatTxHash = (hash: string) => {
+    if (hash.length < 12) return hash
+    return `${hash.slice(0, 6)}...${hash.slice(-4)}`
+  }
+
+  // Format address for display
+  const formatAddress = (address: string) => {
+    if (address.length < 12) return address
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  const copyToClipboard = async (text: string, type: 'txHash' | 'address') => {
+    try {
+      await navigator.clipboard.writeText(text)
+      if (type === 'txHash') {
+        setCopiedTxHash(true)
+        setTimeout(() => setCopiedTxHash(false), 2000)
+      } else {
+        setCopiedAddress(true)
+        setTimeout(() => setCopiedAddress(false), 2000)
+      }
+      toast.success("Copied to clipboard!")
+    } catch (err) {
+      toast.error("Failed to copy")
+    }
+  }
 
   return (
     <div className="w-full max-w-md bg-card border-2 border-border rounded-3xl p-8 lg:p-12">
@@ -54,29 +89,130 @@ export default function PaymentSuccess({ amount, onReset, txHash }: PaymentSucce
           </div>
 
           {/* Transaction Details */}
-          <div className="bg-muted/30 rounded-2xl p-6 space-y-3">
-            <div className="flex justify-between items-center">
+          <div className="bg-muted/30 rounded-2xl p-6 space-y-4">
+            {/* Amount */}
+            <div className="flex justify-between items-center pb-3 border-b border-border">
               <span className="text-sm text-muted-foreground">Amount Paid</span>
-              <span className="text-2xl font-bold font-mono text-accent">${amount}</span>
+              <span className="text-2xl font-bold font-mono text-accent">${amount} USDC</span>
             </div>
+
+            {/* Recipient */}
+            {recipient && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Recipient</span>
+                <span className="font-semibold">{recipient}</span>
+              </div>
+            )}
+
+            {/* Network */}
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Network</span>
+              <span className="font-semibold">Celo Mainnet</span>
+            </div>
+
+            {/* Payment Method */}
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Payment Method</span>
+              <span className="font-semibold">x402 (Gasless)</span>
+            </div>
+
+            {/* Status */}
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Status</span>
-              <span className="text-accent font-semibold">Confirmed ✓</span>
+              <span className="text-accent font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                Confirmed
+              </span>
             </div>
-            {txHash && (
+
+            {/* Recipient Address */}
+            {payTo && (
               <div className="pt-2 border-t border-border">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Paid To</span>
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono text-foreground">{formatAddress(payTo)}</code>
+                    <button
+                      onClick={() => copyToClipboard(payTo, 'address')}
+                      className="p-1 hover:bg-muted rounded transition-colors"
+                      title="Copy address"
+                    >
+                      {copiedAddress ? (
+                        <Check className="w-3 h-3 text-accent" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </button>
+                    {addressExplorerUrl && (
+                      <a
+                        href={addressExplorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 hover:bg-muted rounded transition-colors"
+                        title="View address on CeloScan"
+                      >
+                        <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Transaction Hash */}
+            {txHash && (
+              <div className="pt-2 border-t border-border space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Transaction Hash</span>
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono text-foreground">{formatTxHash(txHash)}</code>
+                    <button
+                      onClick={() => copyToClipboard(txHash, 'txHash')}
+                      className="p-1 hover:bg-muted rounded transition-colors"
+                      title="Copy transaction hash"
+                    >
+                      {copiedTxHash ? (
+                        <Check className="w-3 h-3 text-accent" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </button>
+                    <a
+                      href={explorerUrl!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 hover:bg-muted rounded transition-colors"
+                      title="View on CeloScan"
+                    >
+                      <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                    </a>
+                  </div>
+                </div>
                 <a
                   href={explorerUrl!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 text-sm text-accent hover:text-accent/80 transition-colors"
+                  className="flex items-center justify-center gap-2 text-sm text-accent hover:text-accent/80 transition-colors pt-2"
                 >
-                  View on CeloScan
+                  View Full Details on CeloScan
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
             )}
           </div>
+
+          {/* API Response Data */}
+          {apiResponse && (
+            <div className="mt-4 p-4 bg-muted/30 border border-border rounded-xl">
+              <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-accent" />
+                API Response Data
+              </div>
+              <pre className="text-xs text-muted-foreground overflow-auto max-h-60 font-mono bg-background/50 p-3 rounded-lg">
+                {JSON.stringify(apiResponse, null, 2)}
+              </pre>
+            </div>
+          )}
 
           {/* Logo */}
           <div className="pt-4">
