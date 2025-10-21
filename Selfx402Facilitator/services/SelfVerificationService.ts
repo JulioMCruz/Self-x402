@@ -6,6 +6,7 @@
  */
 
 import { SelfBackendVerifier, DefaultConfigStore, AllIds } from '@selfxyz/core';
+import { DatabaseService } from './DatabaseService';
 
 export interface SelfRequirements {
   minimumAge: number;
@@ -31,11 +32,17 @@ export interface SelfVerificationResult {
 }
 
 export class SelfVerificationService {
-  private nullifiers: Map<string, string> = new Map(); // In-memory storage (TODO: PostgreSQL)
+  private db: DatabaseService | null = null;
   private verifiers: Map<string, SelfBackendVerifier> = new Map(); // Cache verifiers by scope
 
-  constructor() {
-    console.log('✅ SelfVerificationService initialized with @selfxyz/core');
+  constructor(database?: DatabaseService) {
+    this.db = database || null;
+
+    if (this.db) {
+      console.log('✅ SelfVerificationService initialized with Supabase database');
+    } else {
+      console.log('⚠️  SelfVerificationService initialized WITHOUT database (in-memory mode)');
+    }
   }
 
   /**
@@ -163,8 +170,18 @@ export class SelfVerificationService {
         }
       }
 
-      // Store nullifier (90-day expiry)
-      await this.storeNullifier(nullifier, requirements.scope);
+      // Store nullifier (90-day expiry) with metadata
+      await this.storeNullifier(
+        nullifier,
+        requirements.scope,
+        result.userId,
+        nationality,
+        {
+          ageValid: isMinimumAgeValid,
+          ofacValid: isOfacValid,
+          verifiedAt: new Date().toISOString()
+        }
+      );
 
       console.log(`✅ Self verification successful for ${nationality || 'unknown'} national`);
 
@@ -197,31 +214,41 @@ export class SelfVerificationService {
    * Check if nullifier already exists (prevent duplicates)
    */
   private async checkNullifierExists(nullifier: string, scope: string): Promise<boolean> {
-    // TODO: Replace with PostgreSQL lookup
-    // SELECT EXISTS(SELECT 1 FROM nullifiers WHERE nullifier = $1 AND scope = $2)
-    const key = `${scope}:${nullifier}`;
-    return this.nullifiers.has(key);
+    if (!this.db) {
+      console.warn('⚠️  Database not available, skipping nullifier check');
+      return false;
+    }
+
+    return await this.db.checkNullifierExists(nullifier, scope);
   }
 
   /**
    * Store nullifier with 90-day expiry
    */
-  private async storeNullifier(nullifier: string, scope: string): Promise<void> {
-    // TODO: Replace with PostgreSQL insert
-    // INSERT INTO nullifiers (nullifier, scope, expires_at)
-    // VALUES ($1, $2, NOW() + INTERVAL '90 days')
-    const key = `${scope}:${nullifier}`;
-    this.nullifiers.set(key, new Date().toISOString());
+  private async storeNullifier(
+    nullifier: string,
+    scope: string,
+    userId?: string,
+    nationality?: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    if (!this.db) {
+      console.warn('⚠️  Database not available, nullifier not persisted');
+      return;
+    }
 
-    console.log(`✅ Nullifier stored: ${nullifier.substring(0, 10)}... (scope: ${scope})`);
+    await this.db.storeNullifier(nullifier, scope, userId, nationality, metadata);
   }
 
   /**
    * Clean up expired nullifiers (should run periodically)
    */
-  async cleanupExpiredNullifiers(): Promise<void> {
-    // TODO: Implement PostgreSQL cleanup
-    // DELETE FROM nullifiers WHERE expires_at < NOW()
-    console.log('🧹 Cleaning up expired nullifiers...');
+  async cleanupExpiredNullifiers(): Promise<number> {
+    if (!this.db) {
+      console.warn('⚠️  Database not available, skipping cleanup');
+      return 0;
+    }
+
+    return await this.db.cleanupExpiredNullifiers();
   }
 }

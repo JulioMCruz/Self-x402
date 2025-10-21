@@ -29,12 +29,31 @@ This facilitator enables:
 
 ## Setup
 
-1. **Install dependencies:**
+### 1. Install dependencies
 ```bash
 npm install
 ```
 
-2. **Configure environment:**
+### 2. Setup Supabase Database
+
+**Create Supabase Project:**
+1. Go to [https://app.supabase.com](https://app.supabase.com)
+2. Create new project (choose region close to your users)
+3. Wait for database initialization (~2 minutes)
+
+**Run Database Schema:**
+1. Go to SQL Editor in Supabase dashboard
+2. Copy contents from `database/schema.sql`
+3. Execute SQL to create `nullifiers` table
+
+**Get API Credentials:**
+1. Go to Project Settings → API
+2. Copy `Project URL` (SUPABASE_URL)
+3. Copy `service_role` secret key (SUPABASE_SERVICE_ROLE_KEY)
+
+⚠️ **Security**: Keep `service_role` key secret! Never expose in client-side code.
+
+### 3. Configure Environment
 ```bash
 cp .env.example .env
 ```
@@ -42,13 +61,17 @@ cp .env.example .env
 Edit `.env` and configure:
 - `CELO_MAINNET_PRIVATE_KEY`: Private key for mainnet operations (required)
 - `CELO_MAINNET_RPC_URL`: Optional custom RPC URL (defaults to https://forno.celo.org)
-- `SERVER_DOMAIN`: Your public domain (e.g., http://codalabs.ngrok.io or https://yourdomain.com)
-- `SELF_ENDPOINT`: Your public verification endpoint (e.g., http://codalabs.ngrok.io/api/verify)
-- `SELF_SCOPE`: Unique scope identifier for your app (e.g., celo-facilitator)
+- `SUPABASE_URL`: Your Supabase project URL (from step 2)
+- `SUPABASE_SERVICE_ROLE_KEY`: Service role secret key (from step 2)
+- `SERVER_DOMAIN`: Your public domain (e.g., https://your-domain.ngrok.io)
+- `SELF_ENDPOINT`: Your public verification endpoint (e.g., https://your-domain.ngrok.io/api/verify)
+- `SELF_SCOPE`: Unique scope identifier for your app (e.g., self-x402-facilitator)
 
-⚠️ **Security**: Never commit your `.env` file. Keep private keys secure.
+⚠️ **Security**: Never commit your `.env` file. Keep private keys and service role key secure.
 
-3. **Setup ngrok tunnel** (required for Self Protocol):
+💡 **Optional**: If you don't configure Supabase, the facilitator will run in **memory-only mode** (nullifiers not persisted across restarts).
+
+### 4. Setup ngrok tunnel (required for Self Protocol)
 
 Self Protocol requires a publicly accessible HTTPS endpoint. Use ngrok to create a tunnel:
 
@@ -65,22 +88,50 @@ Or manually:
 ngrok http --domain=codalabs.ngrok.io 3005
 ```
 
-Your facilitator will be accessible at `http://codalabs.ngrok.io`
+Your facilitator will be accessible at `https://your-domain.ngrok.io`
 
-4. **Build:**
-```bash
-npm run build
-```
+### 5. Build and Run
 
-5. **Run in development:**
+**Development mode** (with hot reload):
 ```bash
 npm run dev
 ```
 
-6. **Run in production:**
+**Production mode**:
 ```bash
+npm run build
 npm start
 ```
+
+### 6. Verify Setup
+
+Check facilitator is running with database:
+```bash
+curl http://localhost:3005/health
+```
+
+Expected response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-15T...",
+  "network": {
+    "name": "Celo Mainnet",
+    "chainId": 42220,
+    "usdc": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C"
+  }
+}
+```
+
+Check database connection in server logs:
+- ✅ `Supabase database service initialized`
+- ✅ `Database connection successful`
+- ✅ `SelfVerificationService initialized with Supabase database`
+- ✅ `Database: Supabase (connected)`
+
+If database connection fails:
+- ⚠️  `Database connection failed - running in memory-only mode`
+- ⚠️  `Database: In-memory mode`
 
 ## API Endpoints
 
@@ -363,9 +414,33 @@ APIs pass requirements to facilitator:
 ### Nullifier Management
 
 - **Purpose**: Prevent duplicate verifications (Sybil resistance)
-- **Storage**: In-memory Map (TODO: PostgreSQL)
+- **Storage**: Supabase PostgreSQL (or in-memory fallback)
 - **Uniqueness**: One passport = one nullifier per scope
 - **Expiry**: 90 days (re-verification required)
+- **Schema**: See `database/schema.sql` for table structure
+
+**Database Table Structure**:
+```sql
+CREATE TABLE nullifiers (
+  id UUID PRIMARY KEY,
+  nullifier TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  user_id TEXT,
+  nationality TEXT,
+  metadata JSONB,
+  CONSTRAINT unique_nullifier_scope UNIQUE (nullifier, scope)
+);
+```
+
+**Automatic Cleanup**:
+Run periodic cleanup of expired nullifiers:
+```typescript
+// Call via cron job or scheduled task
+const deletedCount = await selfService.cleanupExpiredNullifiers();
+console.log(`Cleaned up ${deletedCount} expired nullifiers`);
+```
 
 ### Tier Calculation
 
