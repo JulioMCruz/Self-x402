@@ -4,11 +4,11 @@ import { createWalletClient, createPublicClient, http, type Address, recoverType
 import { privateKeyToAccount } from "viem/accounts";
 import { verify, settle } from "x402/facilitator";
 import { z } from "zod";
-import { celo, celoSepolia } from "./config/chains";
-import { CELO_MAINNET, CELO_SEPOLIA, getNetworkConfig, isSupportedNetwork } from "./config/networks";
-import { USDC_ABI } from "./config/usdc-abi";
-import { SelfVerificationService, type SelfRequirements } from "./services/SelfVerificationService";
-import { DatabaseService } from "./services/DatabaseService";
+import { celo, celoSepolia } from "./config/chains.js";
+import { CELO_MAINNET, CELO_SEPOLIA, getNetworkConfig, isSupportedNetwork } from "./config/networks.js";
+import { USDC_ABI } from "./config/usdc-abi.js";
+import { SelfVerificationService, type SelfRequirements } from "./services/SelfVerificationService.js";
+import { DatabaseService } from "./services/DatabaseService.js";
 import { SelfBackendVerifier , AllIds, DefaultConfigStore} from "@selfxyz/core"
 
 dotenv.config();
