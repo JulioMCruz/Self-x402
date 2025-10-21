@@ -61,7 +61,7 @@ interface X402ServiceDiscovery {
 interface PaymentFormProps {
   vendorUrl?: string
   apiEndpoint?: string
-  showDeepLink?: boolean // Toggle between QR code (false) and deep link button (true)
+  showDeepLink?: boolean | 'both' // false = QR only, true = deep link only, 'both' = show both
   onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
@@ -555,9 +555,32 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, showDeepLink = fal
                 </h2>
               </div>
 
-              <div className="flex items-center justify-center">
-                {showDeepLink ? (
-                  // Deep Link Button Mode
+              <div className="flex flex-col items-center gap-4 w-full">
+                {/* QR Code Display (show when showDeepLink is false or 'both') */}
+                {(showDeepLink === false || showDeepLink === 'both') && (
+                  selfApp ? (
+                    <div className="bg-background border-2 border-border rounded-3xl p-4">
+                      <SelfQRcodeWrapper
+                        selfApp={selfApp}
+                        onSuccess={handleVerificationSuccess}
+                        onError={(e) => {
+                          console.error("Failed to verify identity:", e)
+                          toast.error("Verification failed")
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-64 h-64 bg-background border-2 border-border rounded-3xl flex items-center justify-center">
+                      <div className="text-center space-y-4">
+                        <QrCode className="w-32 h-32 mx-auto text-muted-foreground animate-pulse" />
+                        <p className="text-sm text-muted-foreground font-mono">Loading QR...</p>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {/* Deep Link Buttons (show when showDeepLink is true or 'both') */}
+                {(showDeepLink === true || showDeepLink === 'both') && (
                   <div className="w-full space-y-3">
                     <Button
                       onClick={() => {
@@ -587,27 +610,6 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, showDeepLink = fal
                       Copy Universal Link
                     </Button>
                   </div>
-                ) : (
-                  // QR Code Mode (default)
-                  selfApp ? (
-                    <div className="bg-background border-2 border-border rounded-3xl p-4">
-                      <SelfQRcodeWrapper
-                        selfApp={selfApp}
-                        onSuccess={handleVerificationSuccess}
-                        onError={(e) => {
-                          console.error("Failed to verify identity:", e)
-                          toast.error("Verification failed")
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-64 h-64 bg-background border-2 border-border rounded-3xl flex items-center justify-center">
-                      <div className="text-center space-y-4">
-                        <QrCode className="w-32 h-32 mx-auto text-muted-foreground animate-pulse" />
-                        <p className="text-sm text-muted-foreground font-mono">Loading QR...</p>
-                      </div>
-                    </div>
-                  )
                 )}
               </div>
             </div>
