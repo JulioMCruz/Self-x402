@@ -10,6 +10,7 @@ import Image from "next/image"
 import {
   SelfQRcodeWrapper,
   SelfAppBuilder,
+  getUniversalLink,
   type SelfApp,
 } from "@selfxyz/qrcode"
 import { toast } from "sonner"
@@ -60,6 +61,7 @@ interface X402ServiceDiscovery {
 interface PaymentFormProps {
   vendorUrl?: string
   apiEndpoint?: string
+  showDeepLink?: boolean // Toggle between QR code (false) and deep link button (true)
   onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
@@ -88,7 +90,7 @@ const types = {
   ],
 }
 
-export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, onPaymentFailure }: PaymentFormProps = {}) {
+export default function PaymentForm({ vendorUrl, apiEndpoint, showDeepLink = false, onPaymentSuccess, onPaymentFailure }: PaymentFormProps = {}) {
   const defaultVendorUrl = vendorUrl || process.env.NEXT_PUBLIC_VENDOR_API_URL || "http://localhost:3000"
   const defaultApiEndpoint = apiEndpoint || "/api/demo"
 
@@ -97,6 +99,7 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, 
   const [recipient, setRecipient] = useState("Acme Corporation")
   const [description, setDescription] = useState("Premium subscription service - Monthly billing")
   const [selfApp, setSelfApp] = useState<SelfApp | null>(null)
+  const [universalLink, setUniversalLink] = useState("")
   const [isVerified, setIsVerified] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentComplete, setPaymentComplete] = useState(false)
@@ -188,6 +191,7 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, 
       }).build()
 
       setSelfApp(app)
+      setUniversalLink(getUniversalLink(app))
     } catch (error) {
       console.error("Failed to initialize Self app:", error)
     }
@@ -552,24 +556,58 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, 
               </div>
 
               <div className="flex items-center justify-center">
-                {selfApp ? (
-                  <div className="bg-background border-2 border-border rounded-3xl p-4">
-                    <SelfQRcodeWrapper
-                      selfApp={selfApp}
-                      onSuccess={handleVerificationSuccess}
-                      onError={(e) => {
-                        console.error("Failed to verify identity:", e)
-                        toast.error("Verification failed")
+                {showDeepLink ? (
+                  // Deep Link Button Mode
+                  <div className="w-full space-y-3">
+                    <Button
+                      onClick={() => {
+                        if (universalLink) {
+                          window.open(universalLink, "_blank")
+                          toast.info("Opening Self App...")
+                        }
                       }}
-                    />
+                      disabled={!universalLink}
+                      size="lg"
+                      className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Open Self App
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (universalLink) {
+                          navigator.clipboard.writeText(universalLink)
+                          toast.success("Universal link copied!")
+                        }
+                      }}
+                      disabled={!universalLink}
+                      variant="outline"
+                      size="lg"
+                      className="w-full h-12 text-base"
+                    >
+                      Copy Universal Link
+                    </Button>
                   </div>
                 ) : (
-                  <div className="w-64 h-64 bg-background border-2 border-border rounded-3xl flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <QrCode className="w-32 h-32 mx-auto text-muted-foreground animate-pulse" />
-                      <p className="text-sm text-muted-foreground font-mono">Loading QR...</p>
+                  // QR Code Mode (default)
+                  selfApp ? (
+                    <div className="bg-background border-2 border-border rounded-3xl p-4">
+                      <SelfQRcodeWrapper
+                        selfApp={selfApp}
+                        onSuccess={handleVerificationSuccess}
+                        onError={(e) => {
+                          console.error("Failed to verify identity:", e)
+                          toast.error("Verification failed")
+                        }}
+                      />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="w-64 h-64 bg-background border-2 border-border rounded-3xl flex items-center justify-center">
+                      <div className="text-center space-y-4">
+                        <QrCode className="w-32 h-32 mx-auto text-muted-foreground animate-pulse" />
+                        <p className="text-sm text-muted-foreground font-mono">Loading QR...</p>
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
             </div>
