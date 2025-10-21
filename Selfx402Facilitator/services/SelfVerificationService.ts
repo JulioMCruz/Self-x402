@@ -6,7 +6,7 @@
  */
 
 import { SelfBackendVerifier, DefaultConfigStore, AllIds } from '@selfxyz/core';
-import { DatabaseService } from './DatabaseService';
+import { DatabaseService } from './DatabaseService.js';
 
 export interface SelfRequirements {
   minimumAge: number;
