@@ -8,12 +8,33 @@ import { celo, celoSepolia } from "./config/chains";
 import { CELO_MAINNET, CELO_SEPOLIA, getNetworkConfig, isSupportedNetwork } from "./config/networks";
 import { USDC_ABI } from "./config/usdc-abi";
 import { SelfVerificationService, type SelfRequirements } from "./services/SelfVerificationService";
+import { DatabaseService } from "./services/DatabaseService";
 import { SelfBackendVerifier , AllIds, DefaultConfigStore} from "@selfxyz/core"
 
 dotenv.config();
 
-// Initialize Self verification service
-const selfService = new SelfVerificationService();
+// Initialize Supabase database service
+let database: DatabaseService | undefined;
+try {
+  database = new DatabaseService();
+  // Test connection on startup
+  database.testConnection().then(connected => {
+    if (!connected) {
+      console.warn('⚠️  Database connection failed - running in memory-only mode');
+      database = undefined;
+    }
+  }).catch(error => {
+    console.error('❌ Database initialization error:', error);
+    database = undefined;
+  });
+} catch (error) {
+  console.error('❌ Failed to initialize database:', error);
+  console.warn('⚠️  Running without database - nullifiers will not persist');
+  database = undefined;
+}
+
+// Initialize Self verification service with database
+const selfService = new SelfVerificationService(database);
 
 const app = express();
 
@@ -596,6 +617,7 @@ app.listen(PORT, () => {
   console.log(`📡 Network: Celo Mainnet (Chain ID: ${CELO_MAINNET.chainId})`);
   console.log(`💵 USDC: ${CELO_MAINNET.usdcAddress}`);
   console.log(`🔐 Self Protocol: Enabled (proof-of-unique-human verification)`);
+  console.log(`💾 Database: ${database ? 'Supabase (connected)' : 'In-memory mode'}`);
   console.log(`\nAvailable endpoints:`);
   console.log(`  GET  /supported     - x402 supported payment kinds`);
   console.log(`  POST /verify        - x402 standard payment verification`);
@@ -603,5 +625,6 @@ app.listen(PORT, () => {
   console.log(`  POST /verify-self   - Self Protocol proof validation`);
   console.log(`  POST /settle        - x402 standard payment settlement`);
   console.log(`  POST /settle-celo   - Celo payment settlement`);
+  console.log(`  POST /api/verify    - Self QR verification endpoint`);
   console.log(`  GET  /health        - Health check`);
 });
