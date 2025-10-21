@@ -57,7 +57,7 @@ export default function Home() {
             apiEndpoint={apiEndpoint}
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={handlePaymentFailure}
-            showDeepLink={true}
+            showDeepLink={false}
           />
         </TabsContent>
         <TabsContent value="minimal" className="w-full flex justify-center">
