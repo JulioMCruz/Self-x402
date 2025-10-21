@@ -174,7 +174,7 @@ export class SelfVerificationService {
       await this.storeNullifier(
         nullifier,
         requirements.scope,
-        result.userId,
+        (result as any).userId,
         nationality,
         {
           ageValid: isMinimumAgeValid,
