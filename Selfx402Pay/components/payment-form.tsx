@@ -60,7 +60,7 @@ interface X402ServiceDiscovery {
 interface PaymentFormProps {
   vendorUrl?: string
   apiEndpoint?: string
-  onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string }) => void
+  onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
 
@@ -308,7 +308,8 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, 
           txHash: txHashValue,
           amount,
           recipient,
-          payTo: address
+          payTo: address,
+          apiResponse: apiData
         })
       }
 
@@ -489,27 +490,21 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, 
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="recipient" className="text-sm font-medium text-muted-foreground">
+              <Label className="text-sm font-medium text-muted-foreground">
                 Seller
               </Label>
-              <Input
-                id="recipient"
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-                className="bg-background border-2 border-border text-foreground font-mono h-12"
-              />
+              <div className="bg-background border-2 border-border rounded-lg px-4 py-3 h-12 flex items-center">
+                <p className="text-foreground font-mono text-base">{recipient}</p>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium text-muted-foreground">
+              <Label className="text-sm font-medium text-muted-foreground">
                 Service
               </Label>
-              <Input
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="bg-background border-2 border-border text-foreground h-12"
-              />
+              <div className="bg-background border-2 border-border rounded-lg px-4 py-3 min-h-[3rem] flex items-center">
+                <p className="text-foreground text-sm leading-relaxed">{description}</p>
+              </div>
             </div>
 
             {/* <div className="space-y-2">

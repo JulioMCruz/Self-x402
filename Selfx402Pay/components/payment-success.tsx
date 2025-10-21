@@ -201,19 +201,6 @@ export default function PaymentSuccess({ amount, onReset, txHash, recipient, pay
             )}
           </div>
 
-          {/* API Response Data */}
-          {apiResponse && (
-            <div className="mt-4 p-4 bg-muted/30 border border-border rounded-xl">
-              <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-accent" />
-                API Response Data
-              </div>
-              <pre className="text-xs text-muted-foreground overflow-auto max-h-60 font-mono bg-background/50 p-3 rounded-lg">
-                {JSON.stringify(apiResponse, null, 2)}
-              </pre>
-            </div>
-          )}
-
           {/* Logo */}
           <div className="pt-4">
             <Image src="/logo.png" alt="Self x Pay" width={160} height={48} className="mx-auto opacity-60" />

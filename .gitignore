@@ -112,3 +112,4 @@ debug/
 *.debug
 # DocsDesign - Design documentation (commented out to include in git)
 # DocsDesign
+SelfAppExample

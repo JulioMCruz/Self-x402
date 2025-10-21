@@ -14,8 +14,14 @@ export default function Home() {
   const apiEndpoint = "/api/demo"
 
   // Payment success callback
-  const handlePaymentSuccess = (data: { txHash: string; amount: string; recipient?: string; payTo: string }) => {
+  const handlePaymentSuccess = (data: { txHash: string; amount: string; recipient?: string; payTo: string; apiResponse?: any }) => {
     console.log("[App] Payment successful!", data)
+
+    // Log API response separately for better visibility
+    if (data.apiResponse) {
+      console.log("[App] API Response Data:", data.apiResponse)
+    }
+
     // You can add custom logic here:
     // - Analytics tracking
     // - Database updates
