@@ -37,6 +37,7 @@ try {
 const selfService = new SelfVerificationService(database);
 
 const app = express();
+const PORT = process.env.PORT || 3005;
 
 // CORS Configuration - Allow requests from frontend
 app.use((req, res, next) => {
@@ -66,8 +67,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-
-const PORT = process.env.PORT || 3000;
 
 // Validation schemas
 const PaymentPayloadSchema = z.object({
@@ -175,7 +174,7 @@ app.post("/api/verify", async (req, res) => {
 
       const discoveryResponse = await fetch(`${vendorUrl}/.well-known/x402`)
       if (discoveryResponse.ok) {
-        const discoveryData = await discoveryResponse.json()
+        const discoveryData = await discoveryResponse.json() as any
         vendorDisclosures = discoveryData.verification?.requirements
         console.log("Vendor disclosure requirements:", vendorDisclosures)
       } else {

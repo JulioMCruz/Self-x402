@@ -555,6 +555,76 @@ CeloFacilitator/
 - [SELF_FACILITATOR_ARCHITECTURE.md](../SELF_FACILITATOR_ARCHITECTURE.md) - Complete architecture guide
 - [SelfFrontend Example](../SelfFrontend/) - Frontend integration example
 
+## Deployment
+
+### Railway Deployment (Recommended for Subdirectories)
+
+Railway is the easiest option for deploying from monorepo subdirectories.
+
+**Quick Start**:
+
+1. **Go to Railway Dashboard**: https://railway.app/dashboard
+2. **New Project** → **Deploy from GitHub repo**
+3. **Select repository**: `Self-x402`
+4. **⚠️ CRITICAL**: Set **Root Directory** to `Selfx402Facilitator` in Settings
+5. **Add Variables** in Variables tab:
+   ```
+   CELO_MAINNET_PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   NODE_ENV=production
+   ```
+6. **Deploy** and wait ~2-3 minutes
+7. **Get URL** from Settings → Domains (e.g., `https://your-app.up.railway.app`)
+8. **Test**: `curl https://your-app.up.railway.app/health`
+
+**See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete step-by-step guide with screenshots and troubleshooting.**
+
+**Features**:
+- ✅ Subdirectory support (perfect for monorepos)
+- ✅ Auto-deploy on git push
+- ✅ Free tier: $5/month credit
+- ✅ Automatic HTTPS
+- ✅ Web UI (no CLI required)
+
+**Cost**: ~$3-5/month (Free tier includes $5/month credit)
+
+### Alternative Deployment Options
+
+**Render** (also supports subdirectories):
+1. Go to https://render.com/dashboard
+2. New → Web Service → Connect GitHub repo
+3. Set Root Directory: `Selfx402Facilitator`
+4. Build Command: `npm install && npx tsc`
+5. Start Command: `node dist/index.js`
+6. Add environment variables
+7. Deploy
+
+**VPS (DigitalOcean, AWS EC2, etc.)**:
+```bash
+# SSH into server
+ssh user@your-server.com
+
+# Clone repository
+git clone https://github.com/your-repo/selfx402.git
+cd selfx402/Selfx402Facilitator
+
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Set environment variables in .env file
+# (copy from .env.example)
+
+# Run with PM2 (process manager)
+npm install -g pm2
+pm2 start dist/index.js --name selfx402-facilitator
+pm2 save
+pm2 startup
+```
+
 ## License
 
 MIT
