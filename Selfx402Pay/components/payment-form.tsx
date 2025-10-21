@@ -60,7 +60,7 @@ interface X402ServiceDiscovery {
 interface PaymentFormProps {
   vendorUrl?: string
   apiEndpoint?: string
-  onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string }) => void
+  onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
 
@@ -308,7 +308,8 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, onPaymentSuccess, 
           txHash: txHashValue,
           amount,
           recipient,
-          payTo: address
+          payTo: address,
+          apiResponse: apiData
         })
       }
 

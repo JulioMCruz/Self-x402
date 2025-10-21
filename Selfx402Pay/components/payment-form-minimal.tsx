@@ -54,7 +54,7 @@ const types = {
 interface PaymentFormMinimalProps {
   vendorUrl?: string
   apiEndpoint?: string
-  onPaymentSuccess?: (data: { txHash: string; amount: string; payTo: string }) => void
+  onPaymentSuccess?: (data: { txHash: string; amount: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
 
@@ -231,7 +231,8 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, onPaymentSu
         onPaymentSuccess({
           txHash: txHashValue,
           amount,
-          payTo: address
+          payTo: address,
+          apiResponse: apiData
         })
       }
 
