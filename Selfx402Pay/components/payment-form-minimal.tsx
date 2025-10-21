@@ -64,6 +64,8 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, onPaymentSu
 
   const [address, setAddress] = useState("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0")
   const [amount, setAmount] = useState("0.001")
+  const [recipient, setRecipient] = useState("Vendor")
+  const [description, setDescription] = useState("Service")
   const [selfApp, setSelfApp] = useState<SelfApp | null>(null)
   const [isVerified, setIsVerified] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
@@ -88,6 +90,29 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, onPaymentSu
   const formattedBalance = usdcBalance ? formatUnits(usdcBalance, 6) : '0.00'
 
   const excludedCountries = useMemo(() => [], [])
+
+  // Fetch service discovery on mount
+  useEffect(() => {
+    const fetchServiceDiscovery = async () => {
+      try {
+        const discoveryUrl = `${defaultVendorUrl}/.well-known/x402`
+        const response = await fetch(discoveryUrl)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.payTo) setAddress(data.payTo)
+          if (data.payment?.price) setAmount(data.payment.price.replace('$', ''))
+          if (data.service) setRecipient(data.service)
+          if (data.routes) {
+            const firstRoute = Object.values(data.routes)[0] as any
+            if (firstRoute?.description) setDescription(firstRoute.description)
+          }
+        }
+      } catch (error) {
+        console.error('[Minimal] Failed to fetch service discovery:', error)
+      }
+    }
+    fetchServiceDiscovery()
+  }, [defaultVendorUrl])
 
   useEffect(() => {
     try {
@@ -271,7 +296,7 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, onPaymentSu
         amount={amount}
         onReset={handleReset}
         txHash={txHash}
-        recipient="Vendor"
+        recipient={recipient}
         payTo={address}
         apiResponse={apiResponse}
       />
@@ -336,19 +361,29 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, onPaymentSu
 
         {/* Payment Fields */}
         <div className="space-y-4">
-          <Input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="bg-background border border-border text-foreground font-mono text-sm"
-            placeholder="Vendor Address: 0x..."
-          />
+          {/* Seller */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Seller</label>
+            <div className="bg-background border border-border rounded-lg px-3 py-2 min-h-[2.5rem] flex items-center">
+              <p className="text-foreground font-semibold text-sm">{recipient}</p>
+            </div>
+          </div>
 
-          <Input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="bg-background border border-border text-foreground font-mono text-lg"
-            placeholder="Amount: 0.001"
-          />
+          {/* Service */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Service</label>
+            <div className="bg-background border border-border rounded-lg px-3 py-2 min-h-[2.5rem] flex items-center">
+              <p className="text-foreground text-xs leading-relaxed">{description}</p>
+            </div>
+          </div>
+
+          {/* Amount */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Amount</label>
+            <div className="bg-background border border-border rounded-lg px-3 py-2 h-10 flex items-center">
+              <p className="text-foreground font-mono text-lg font-semibold">${amount} USDC</p>
+            </div>
+          </div>
         </div>
 
         {/* QR Code */}
