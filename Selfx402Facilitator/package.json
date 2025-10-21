@@ -1,6 +1,7 @@
 {
   "name": "celo-x402-facilitator",
   "version": "1.0.0",
+  "type": "module",
   "description": "x402 facilitator service with Celo mainnet and Sepolia testnet support",
   "main": "dist/index.js",
   "scripts": {
