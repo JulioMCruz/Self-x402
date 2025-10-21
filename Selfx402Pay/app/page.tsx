@@ -48,8 +48,9 @@ export default function Home() {
       {/* Payment Forms */}
       <Tabs defaultValue="regular" className="w-full flex flex-col items-center gap-6">
         <TabsList className="bg-muted">
-          <TabsTrigger value="regular">Regular</TabsTrigger>
-          <TabsTrigger value="minimal">Minimal</TabsTrigger>
+          <TabsTrigger value="regular">Regular Version</TabsTrigger>
+          <TabsTrigger value="minimal">Minimal Version</TabsTrigger>
+          <TabsTrigger value="both">QR + Deep Link</TabsTrigger>
         </TabsList>
         <TabsContent value="regular" className="w-full flex justify-center">
           <PaymentForm
@@ -57,7 +58,7 @@ export default function Home() {
             apiEndpoint={apiEndpoint}
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={handlePaymentFailure}
-            showDeepLink={false}
+            showDeepLink={'both'}
           />
         </TabsContent>
         <TabsContent value="minimal" className="w-full flex justify-center">
@@ -66,7 +67,16 @@ export default function Home() {
             apiEndpoint={apiEndpoint}
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={handlePaymentFailure}
-            showDeepLink={false}
+            showDeepLink={'both'}
+          />
+        </TabsContent>
+        <TabsContent value="both" className="w-full flex justify-center">
+          <PaymentForm
+            vendorUrl={vendorUrl}
+            apiEndpoint={apiEndpoint}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentFailure={handlePaymentFailure}
+            showDeepLink="both"
           />
         </TabsContent>
       </Tabs>

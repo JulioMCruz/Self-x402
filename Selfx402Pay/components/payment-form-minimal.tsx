@@ -55,7 +55,7 @@ const types = {
 interface PaymentFormMinimalProps {
   vendorUrl?: string
   apiEndpoint?: string
-  showDeepLink?: boolean // Toggle between QR code (false) and deep link button (true)
+  showDeepLink?: boolean | 'both' // false = QR only, true = deep link only, 'both' = show both
   onPaymentSuccess?: (data: { txHash: string; amount: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
@@ -391,9 +391,29 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, showDeepLin
         </div>
 
         {/* QR Code or Deep Link */}
-        <div className="flex items-center justify-center py-4">
-          {showDeepLink ? (
-            // Deep Link Buttons
+        <div className="flex flex-col items-center gap-4 w-full py-4">
+          {/* QR Code Display (show when showDeepLink is false or 'both') */}
+          {(showDeepLink === false || showDeepLink === 'both') && (
+            selfApp ? (
+              <div className="bg-background border border-border rounded-xl p-2">
+                <SelfQRcodeWrapper
+                  selfApp={selfApp}
+                  onSuccess={handleVerificationSuccess}
+                  onError={(e) => {
+                    console.error("Failed to verify identity:", e)
+                    toast.error("Verification failed")
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="w-40 h-40 bg-background border border-border rounded-xl flex items-center justify-center">
+                <QrCode className="w-24 h-24 text-muted-foreground animate-pulse" />
+              </div>
+            )
+          )}
+
+          {/* Deep Link Buttons (show when showDeepLink is true or 'both') */}
+          {(showDeepLink === true || showDeepLink === 'both') && (
             selfApp && universalLink ? (
               <div className="w-full space-y-3">
                 <Button
@@ -418,24 +438,6 @@ export default function PaymentFormMinimal({ vendorUrl, apiEndpoint, showDeepLin
                 >
                   Copy Universal Link
                 </Button>
-              </div>
-            ) : (
-              <div className="w-40 h-40 bg-background border border-border rounded-xl flex items-center justify-center">
-                <QrCode className="w-24 h-24 text-muted-foreground animate-pulse" />
-              </div>
-            )
-          ) : (
-            // QR Code Display
-            selfApp ? (
-              <div className="bg-background border border-border rounded-xl p-2">
-                <SelfQRcodeWrapper
-                  selfApp={selfApp}
-                  onSuccess={handleVerificationSuccess}
-                  onError={(e) => {
-                    console.error("Failed to verify identity:", e)
-                    toast.error("Verification failed")
-                  }}
-                />
               </div>
             ) : (
               <div className="w-40 h-40 bg-background border border-border rounded-xl flex items-center justify-center">
