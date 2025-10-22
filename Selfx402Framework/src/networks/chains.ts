@@ -1,3 +1,8 @@
+/**
+ * Viem chain definitions for Celo networks
+ * Used for wallet client creation
+ */
+
 import { defineChain } from "viem";
 
 export const celo = defineChain({
@@ -23,10 +28,27 @@ export const celoSepolia = defineChain({
   name: "Celo Sepolia",
   nativeCurrency: { name: "CELO", symbol: "CELO", decimals: 18 },
   rpcUrls: {
-    default: { http: ["https://celo-sepolia.g.alchemy.com"] },
+    default: { http: ["https://celo-sepolia.g.alchemy.com/v2/demo"] },
   },
   blockExplorers: {
-    default: { name: "Celo Sepolia Explorer", url: "https://celo-sepolia.blockscout.com" },
+    default: {
+      name: "Celo Sepolia Explorer",
+      url: "https://celo-sepolia.blockscout.com",
+    },
   },
   testnet: true,
 });
+
+/**
+ * Get viem chain definition for a given chain ID
+ */
+export function getViemChain(chainId: number) {
+  switch (chainId) {
+    case 42220:
+      return celo;
+    case 11142220:
+      return celoSepolia;
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
+}

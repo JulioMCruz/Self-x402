@@ -1,0 +1,90 @@
+{
+  "name": "selfx402-pay-widget",
+  "version": "1.0.0",
+  "description": "Self Protocol + x402 payment widget for React applications - Proof-of-unique-human verification with gasless USDC payments on Celo",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "build": "npx tsup src/index.ts --format cjs,esm --dts --external react --external react-dom",
+    "dev": "npx tsup src/index.ts --format cjs,esm --dts --external react --external react-dom --watch",
+    "prepublishOnly": "npm run build",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "self-protocol",
+    "x402",
+    "payment",
+    "widget",
+    "react",
+    "celo",
+    "usdc",
+    "gasless",
+    "crypto",
+    "proof-of-unique-human",
+    "zk-proof",
+    "identity",
+    "verification",
+    "zknexus",
+    "deferred-payments",
+    "micropayments"
+  ],
+  "author": {
+    "name": "zkNexus",
+    "email": "contact@zknexus.xyz",
+    "url": "https://www.zknexus.xyz"
+  },
+  "contributors": [
+    {
+      "name": "Julio M Cruz",
+      "url": "https://github.com/JulioMCruz"
+    }
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JulioMCruz/Self-x402.git",
+    "directory": "Selfx402PayWidget"
+  },
+  "bugs": {
+    "url": "https://github.com/JulioMCruz/Self-x402/issues"
+  },
+  "homepage": "https://www.zknexus.xyz",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@selfxyz/qrcode": "^1.0.15",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.454.0",
+    "sonner": "^1.7.4",
+    "tailwind-merge": "^2.5.5"
+  },
+  "devDependencies": {
+    "@types/estree": "^1.0.8",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "tsup": "^8.0.0",
+    "typescript": "^5"
+  }
+}

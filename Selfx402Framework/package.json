@@ -1,0 +1,113 @@
+{
+  "name": "selfx402-framework",
+  "version": "1.0.0",
+  "description": "Framework for building x402 facilitator servers and Self Protocol validators with minimal code",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./networks": {
+      "import": "./dist/networks/index.js",
+      "types": "./dist/networks/index.d.ts"
+    },
+    "./wallets": {
+      "import": "./dist/wallets/index.js",
+      "types": "./dist/wallets/index.d.ts"
+    },
+    "./core": {
+      "import": "./dist/core/index.js",
+      "types": "./dist/core/index.d.ts"
+    },
+    "./self": {
+      "import": "./dist/self/index.js",
+      "types": "./dist/self/index.d.ts"
+    },
+    "./middleware": {
+      "import": "./dist/middleware/index.js",
+      "types": "./dist/middleware/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "x402",
+    "facilitator",
+    "self-protocol",
+    "celo",
+    "usdc",
+    "payment",
+    "zero-knowledge",
+    "proof-of-unique-human",
+    "zknexus",
+    "deferred-payments",
+    "micropayments",
+    "eip-712",
+    "eip-3009",
+    "passport-verification",
+    "sybil-resistance"
+  ],
+  "author": {
+    "name": "zkNexus",
+    "email": "contact@zknexus.xyz",
+    "url": "https://www.zknexus.xyz"
+  },
+  "contributors": [
+    {
+      "name": "Julio M Cruz",
+      "url": "https://github.com/JulioMCruz"
+    }
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JulioMCruz/Self-x402.git",
+    "directory": "Selfx402Framework"
+  },
+  "homepage": "https://www.zknexus.xyz",
+  "bugs": {
+    "url": "https://github.com/JulioMCruz/Self-x402/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "viem": "^2.21.54",
+    "@selfxyz/core": "^1.0.8",
+    "@supabase/supabase-js": "^2.76.0",
+    "zod": "^3.24.1",
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.10.5",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "express": "^4.21.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

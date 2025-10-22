@@ -1,0 +1,41 @@
+# Source files (only ship compiled dist/)
+src/
+tsconfig.json
+*.ts
+!*.d.ts
+
+# Development files
+node_modules/
+.env
+.env.*
+*.log
+
+# Build artifacts
+*.tsbuildinfo
+
+# Tests
+test/
+tests/
+*.test.ts
+*.spec.ts
+
+# Documentation (except README.md)
+docs/
+examples/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SQL migration files (not needed in npm package)
+*.sql
