@@ -51,6 +51,7 @@ export default function Home() {
           <TabsTrigger value="regular">Regular Version</TabsTrigger>
           <TabsTrigger value="minimal">Minimal Version</TabsTrigger>
           <TabsTrigger value="both">QR + Deep Link</TabsTrigger>
+          <TabsTrigger value="hide">Hidden QR</TabsTrigger>
         </TabsList>
         <TabsContent value="regular" className="w-full flex justify-center">
           <PaymentForm
@@ -58,7 +59,7 @@ export default function Home() {
             apiEndpoint={apiEndpoint}
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={handlePaymentFailure}
-            showDeepLink={'both'}
+            showDeepLink={false}
           />
         </TabsContent>
         <TabsContent value="minimal" className="w-full flex justify-center">
@@ -67,7 +68,7 @@ export default function Home() {
             apiEndpoint={apiEndpoint}
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={handlePaymentFailure}
-            showDeepLink={'both'}
+            showDeepLink={false}
           />
         </TabsContent>
         <TabsContent value="both" className="w-full flex justify-center">
@@ -77,6 +78,15 @@ export default function Home() {
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={handlePaymentFailure}
             showDeepLink="both"
+          />
+        </TabsContent>
+        <TabsContent value="hide" className="w-full flex justify-center">
+          <PaymentForm
+            vendorUrl={vendorUrl}
+            apiEndpoint={apiEndpoint}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentFailure={handlePaymentFailure}
+            showDeepLink="hide"
           />
         </TabsContent>
       </Tabs>
