@@ -148,12 +148,21 @@ app.post("/api/verify", async (req, res) => {
   try {
 
     console.log("********************************************************")
-    console.log("Verifying Self Protocol proof...")
+    console.log("📥 Self Protocol Verification Request")
     console.log("********************************************************")
 
     const { attestationId, proof, publicSignals, userContextData } = req.body
+
+    console.log("📋 Request Body:", {
+      hasAttestationId: !!attestationId,
+      hasProof: !!proof,
+      hasPublicSignals: !!publicSignals,
+      hasUserContextData: !!userContextData,
+      userContextData
+    });
+
     if (!proof || !publicSignals || !attestationId || !userContextData) {
-      console.log("Proof, publicSignals, attestationId and userContextData are required")
+      console.error("❌ Missing required fields")
       return res.status(200).json({
         status: "error",
         result: false,
@@ -161,10 +170,11 @@ app.post("/api/verify", async (req, res) => {
       })
     }
 
-    console.log("Verifying Self Protocol proof with attestationId:", attestationId)
-    console.log("Proof:", proof)
-    console.log("Public signals:", publicSignals)
-    console.log("User context data (vendor URL):", userContextData)
+    console.log("🔍 Verification Details:")
+    console.log("  - Attestation ID:", attestationId)
+    console.log("  - Proof length:", JSON.stringify(proof).length, "chars")
+    console.log("  - Public signals count:", publicSignals.length)
+    console.log("  - User context data (vendor URL):", userContextData)
 
     // Fetch vendor's disclosure requirements from /.well-known/x402
     let vendorDisclosures: any = null
@@ -191,10 +201,19 @@ app.post("/api/verify", async (req, res) => {
       ofac: false,
     }
 
-    console.log("Creating SelfBackendVerifier with config:", verifierConfig)
+    // Get scope and endpoint from environment variables
+    const selfScope = process.env.SELF_SCOPE || "self-x402-facilitator";
+    const selfEndpoint = process.env.SELF_ENDPOINT || `${process.env.SERVER_DOMAIN || "http://localhost:3005"}/api/verify`;
+
+    console.log("Creating SelfBackendVerifier with config:", {
+      scope: selfScope,
+      endpoint: selfEndpoint,
+      verifierConfig
+    });
+
     const dynamicVerifier = new SelfBackendVerifier(
-      "self-x402-facilitator",
-      "https://codalabs.ngrok.io/api/verify",
+      selfScope,
+      selfEndpoint,
       false,
       AllIds,
       new DefaultConfigStore(verifierConfig),
@@ -212,7 +231,20 @@ app.post("/api/verify", async (req, res) => {
         userContextData
       );
     } catch (error) {
-      console.error("Error verifying with SelfBackendVerifier:", error)
+      console.error("❌ Verification Error:")
+      console.error("  - Type:", error instanceof Error ? error.constructor.name : typeof error)
+      console.error("  - Message:", error instanceof Error ? error.message : String(error))
+      console.error("  - Stack:", error instanceof Error ? error.stack : "N/A")
+
+      // Check if it's a scope mismatch error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Scope") || errorMessage.includes("scope")) {
+        console.error("🔴 SCOPE MISMATCH DETECTED")
+        console.error("  - Expected scope (backend):", selfScope)
+        console.error("  - Endpoint (backend):", selfEndpoint)
+        console.error("  - Frontend should use the same scope in SelfAppBuilder")
+      }
+
       return res.status(200).json({
         status: "error",
         result: false,
