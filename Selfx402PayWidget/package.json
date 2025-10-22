@@ -1,0 +1,75 @@
+{
+  "name": "@selfx402/pay-widget",
+  "version": "0.1.0",
+  "description": "Self Protocol + x402 payment widget for React applications - Proof-of-unique-human verification with gasless USDC payments on Celo",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --external react --external react-dom",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --external react --external react-dom --watch",
+    "prepublishOnly": "npm run build",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "self-protocol",
+    "x402",
+    "payment",
+    "widget",
+    "react",
+    "celo",
+    "usdc",
+    "gasless",
+    "crypto",
+    "proof-of-unique-human",
+    "zk-proof",
+    "identity",
+    "verification"
+  ],
+  "author": "Selfx402 Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/selfx402-pay-widget.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/selfx402-pay-widget/issues"
+  },
+  "homepage": "https://selfx402.xyz",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@selfxyz/qrcode": "^1.0.15",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.454.0",
+    "sonner": "^1.7.4",
+    "tailwind-merge": "^2.5.5",
+    "viem": "^2.38.3",
+    "wagmi": "^2.18.1"
+  },
+  "devDependencies": {
+    "@types/estree": "^1.0.8",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "tsup": "^8.0.0",
+    "typescript": "^5"
+  }
+}
