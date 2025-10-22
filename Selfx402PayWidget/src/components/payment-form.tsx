@@ -351,9 +351,9 @@ export function PaymentForm({
 
   return (
     <Card className="w-full max-w-6xl bg-card border-2 border-border rounded-3xl overflow-hidden">
-      <div className="grid lg:grid-cols-2 gap-6 lg:min-h-[600px]">
+      <div className="grid sm:grid-cols-2 gap-6 min-h-[600px]">
         {/* Left Section */}
-        <div className="p-8 lg:p-12 space-y-8 lg:border-r border-border">
+        <div className="p-6 md:p-8 lg:p-12 space-y-6 md:space-y-8 md:border-r border-border">
           <div className="space-y-2 flex justify-center">
             {logoUrl && <img src={logoUrl} alt="Logo" className="h-24 mb-4" />}
           </div>
@@ -390,7 +390,7 @@ export function PaymentForm({
         </div>
 
         {/* Right Section */}
-        <div className="p-8 lg:p-12 bg-muted/30 flex flex-col justify-center">
+        <div className="p-6 md:p-8 lg:p-12 bg-muted/30 flex flex-col justify-center">
           <div className="space-y-8">
             <div className="space-y-4">
               <div className="flex items-center gap-3">

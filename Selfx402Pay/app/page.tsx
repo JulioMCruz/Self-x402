@@ -100,7 +100,7 @@ export default function Home() {
 
         {/* Tab 1: Simple GET request (default - /api/demo) */}
         <TabsContent value="get-simple" className="w-full flex justify-center">
-          <div className="w-full max-w-2xl space-y-4">
+          <div className="w-full max-w-6xl space-y-4">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Simple GET Request</h2>
               <p className="text-muted-foreground">Standard x402 payment to /api/demo endpoint</p>
@@ -122,7 +122,7 @@ export default function Home() {
 
         {/* Tab 2: GET with query parameters */}
         <TabsContent value="get-params" className="w-full flex justify-center">
-          <div className="w-full max-w-2xl space-y-4">
+          <div className="w-full max-w-6xl space-y-4">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">GET with Query Parameters</h2>
               <p className="text-muted-foreground">Demonstrates passing URL parameters with payment</p>
@@ -146,7 +146,7 @@ export default function Home() {
 
         {/* Tab 3: POST with request body (example - would need matching endpoint) */}
         <TabsContent value="post-body" className="w-full flex justify-center">
-          <div className="w-full max-w-2xl space-y-4">
+          <div className="w-full max-w-6xl space-y-4">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">POST with JSON Body</h2>
               <p className="text-muted-foreground">Example showing POST request with payload</p>
