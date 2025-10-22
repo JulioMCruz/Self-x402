@@ -7,7 +7,7 @@ const config: Config = {
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
-    "./node_modules/@selfx402/pay-widget/**/*.{js,mjs}",
+    "./node_modules/selfx402-pay-widget/**/*.{js,mjs}",
   ],
   prefix: "",
   theme: {
