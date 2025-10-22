@@ -61,7 +61,7 @@ interface X402ServiceDiscovery {
 interface PaymentFormProps {
   vendorUrl?: string
   apiEndpoint?: string
-  showDeepLink?: boolean | 'both' // false = QR only, true = deep link only, 'both' = show both
+  showDeepLink?: boolean | 'both' | 'hide' // false = QR only, true = deep link only, 'both' = show both, 'hide' = QR hidden (in DOM) + deep link buttons
   onPaymentSuccess?: (data: { txHash: string; amount: string; recipient: string; payTo: string; apiResponse?: any }) => void
   onPaymentFailure?: (error: Error) => void
 }
@@ -556,31 +556,33 @@ export default function PaymentForm({ vendorUrl, apiEndpoint, showDeepLink = fal
               </div>
 
               <div className="flex flex-col items-center gap-4 w-full">
-                {/* QR Code Display (show when showDeepLink is false or 'both') */}
-                {(showDeepLink === false || showDeepLink === 'both') && (
-                  selfApp ? (
-                    <div className="bg-background border-2 border-border rounded-3xl p-4">
-                      <SelfQRcodeWrapper
-                        selfApp={selfApp}
-                        onSuccess={handleVerificationSuccess}
-                        onError={(e) => {
-                          console.error("Failed to verify identity:", e)
-                          toast.error("Verification failed")
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-64 h-64 bg-background border-2 border-border rounded-3xl flex items-center justify-center">
-                      <div className="text-center space-y-4">
-                        <QrCode className="w-32 h-32 mx-auto text-muted-foreground animate-pulse" />
-                        <p className="text-sm text-muted-foreground font-mono">Loading QR...</p>
+                {/* QR Code Display - Always in DOM, but hidden when showDeepLink is 'hide' */}
+                <div className={showDeepLink === 'hide' ? 'hidden' : ''}>
+                  {(showDeepLink === false || showDeepLink === 'both' || showDeepLink === 'hide') && (
+                    selfApp ? (
+                      <div className="bg-background border-2 border-border rounded-3xl p-4">
+                        <SelfQRcodeWrapper
+                          selfApp={selfApp}
+                          onSuccess={handleVerificationSuccess}
+                          onError={(e) => {
+                            console.error("Failed to verify identity:", e)
+                            toast.error("Verification failed")
+                          }}
+                        />
                       </div>
-                    </div>
-                  )
-                )}
+                    ) : (
+                      <div className="w-64 h-64 bg-background border-2 border-border rounded-3xl flex items-center justify-center">
+                        <div className="text-center space-y-4">
+                          <QrCode className="w-32 h-32 mx-auto text-muted-foreground animate-pulse" />
+                          <p className="text-sm text-muted-foreground font-mono">Loading QR...</p>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
 
-                {/* Deep Link Buttons (show when showDeepLink is true or 'both') */}
-                {(showDeepLink === true || showDeepLink === 'both') && (
+                {/* Deep Link Buttons (show when showDeepLink is true, 'both', or 'hide') */}
+                {(showDeepLink === true || showDeepLink === 'both' || showDeepLink === 'hide') && (
                   <div className="w-full space-y-3">
                     <Button
                       onClick={() => {
