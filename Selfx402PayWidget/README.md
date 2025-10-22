@@ -1,8 +1,13 @@
-# @selfx402/pay-widget
+# selfx402-pay-widget
+
+[![npm version](https://badge.fury.io/js/selfx402-pay-widget.svg)](https://www.npmjs.com/package/selfx402-pay-widget)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > Self Protocol + x402 payment widget for React applications
 
 A reusable React component library for integrating Self Protocol identity verification and x402 micropayments into your applications. Enable proof-of-unique-human verification with gasless USDC payments on Celo.
+
+**Published by [zkNexus](https://www.zknexus.xyz)** - Proof-of-unique-human verification meets instant micropayments.
 
 ## Features
 
@@ -12,15 +17,16 @@ A reusable React component library for integrating Self Protocol identity verifi
 - 🎨 **Customizable UI** - Built with Radix UI and Tailwind CSS
 - 📱 **Mobile-First** - Optimized for Self mobile app integration
 - 🔄 **QR & Deep Link** - Multiple verification methods (QR code, universal links)
+- 🔥 **Production Ready** - TypeScript, ESM/CJS dual format, tree-shakeable
 
 ## Installation
 
 ```bash
-npm install @selfx402/pay-widget
+npm install selfx402-pay-widget
 # or
-yarn add @selfx402/pay-widget
+yarn add selfx402-pay-widget
 # or
-pnpm add @selfx402/pay-widget
+pnpm add selfx402-pay-widget
 ```
 
 ### Peer Dependencies
@@ -34,8 +40,8 @@ npm install react react-dom wagmi viem @tanstack/react-query
 ## Quick Start
 
 ```tsx
-import { PaymentForm } from '@selfx402/pay-widget'
-import '@selfx402/pay-widget/styles.css'
+import { PaymentForm } from 'selfx402-pay-widget'
+import 'selfx402-pay-widget/styles.css'
 
 function App() {
   return (

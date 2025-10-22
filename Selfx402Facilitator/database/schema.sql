@@ -28,7 +28,8 @@ CREATE INDEX IF NOT EXISTS idx_nullifiers_scope ON nullifiers (scope);
 -- Enable Row Level Security (optional for multi-tenant)
 ALTER TABLE nullifiers ENABLE ROW LEVEL SECURITY;
 
--- Create policy to allow service role full access
+-- Create policy to allow service role full access (drop if exists, then recreate)
+DROP POLICY IF EXISTS "Enable all for service role" ON nullifiers;
 CREATE POLICY "Enable all for service role" ON nullifiers
   FOR ALL
   USING (auth.role() = 'service_role');
@@ -55,3 +56,130 @@ COMMENT ON COLUMN nullifiers.expires_at IS 'Verification expiry (90 days from cr
 COMMENT ON COLUMN nullifiers.user_id IS 'Optional user ID for tracking';
 COMMENT ON COLUMN nullifiers.nationality IS 'User nationality from Self proof';
 COMMENT ON COLUMN nullifiers.metadata IS 'Additional verification metadata (flexible JSON)';
+
+-- ============================================================================
+-- Deferred Payment Tables (x402 PR #426 - Option A)
+-- ============================================================================
+-- Stores off-chain payment vouchers for micro-payment aggregation
+-- Vouchers are verified via EIP-712 signatures and settled in batches
+
+-- Create vouchers table
+CREATE TABLE IF NOT EXISTS vouchers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payer_address TEXT NOT NULL,
+  payee_address TEXT NOT NULL,
+  amount TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  valid_until TIMESTAMP WITH TIME ZONE NOT NULL,
+  settled BOOLEAN DEFAULT false,
+  network TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  -- Unique constraint on nonce (prevent double-spend)
+  CONSTRAINT unique_voucher_nonce UNIQUE (nonce)
+);
+
+-- Create settlements table
+CREATE TABLE IF NOT EXISTS settlements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tx_hash TEXT NOT NULL,
+  payee_address TEXT NOT NULL,
+  payer_address TEXT NOT NULL,
+  total_amount TEXT NOT NULL,
+  voucher_count INTEGER NOT NULL,
+  network TEXT NOT NULL,
+  settled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  voucher_ids TEXT[],
+
+  -- Unique constraint on tx_hash
+  CONSTRAINT unique_settlement_tx UNIQUE (tx_hash)
+);
+
+-- Indexes for vouchers table
+CREATE INDEX IF NOT EXISTS idx_vouchers_payer ON vouchers (payer_address);
+CREATE INDEX IF NOT EXISTS idx_vouchers_payee ON vouchers (payee_address);
+CREATE INDEX IF NOT EXISTS idx_vouchers_settled ON vouchers (settled);
+CREATE INDEX IF NOT EXISTS idx_vouchers_network ON vouchers (network);
+CREATE INDEX IF NOT EXISTS idx_vouchers_unsettled_lookup ON vouchers (payee_address, payer_address, network, settled);
+
+-- Indexes for settlements table
+CREATE INDEX IF NOT EXISTS idx_settlements_payee ON settlements (payee_address);
+CREATE INDEX IF NOT EXISTS idx_settlements_payer ON settlements (payer_address);
+CREATE INDEX IF NOT EXISTS idx_settlements_network ON settlements (network);
+CREATE INDEX IF NOT EXISTS idx_settlements_timestamp ON settlements (settled_at DESC);
+
+-- Enable Row Level Security (optional for multi-tenant)
+ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
+
+-- Create policy to allow service role full access (drop if exists, then recreate)
+DROP POLICY IF EXISTS "Enable all for service role on vouchers" ON vouchers;
+CREATE POLICY "Enable all for service role on vouchers" ON vouchers
+  FOR ALL
+  USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Enable all for service role on settlements" ON settlements;
+CREATE POLICY "Enable all for service role on settlements" ON settlements
+  FOR ALL
+  USING (auth.role() = 'service_role');
+
+-- Comments for documentation
+COMMENT ON TABLE vouchers IS 'Off-chain payment vouchers for deferred settlement (x402 PR #426)';
+COMMENT ON COLUMN vouchers.payer_address IS 'Address making the payment';
+COMMENT ON COLUMN vouchers.payee_address IS 'Address receiving the payment';
+COMMENT ON COLUMN vouchers.amount IS 'Payment amount in USDC smallest unit (6 decimals)';
+COMMENT ON COLUMN vouchers.nonce IS 'Unique nonce to prevent double-spend';
+COMMENT ON COLUMN vouchers.signature IS 'EIP-712 signature of voucher';
+COMMENT ON COLUMN vouchers.valid_until IS 'Voucher expiry timestamp';
+COMMENT ON COLUMN vouchers.settled IS 'Whether voucher has been settled on-chain';
+COMMENT ON COLUMN vouchers.network IS 'Network identifier (celo, celo-sepolia)';
+
+COMMENT ON TABLE settlements IS 'On-chain settlement records for aggregated vouchers (x402 PR #426)';
+COMMENT ON COLUMN settlements.tx_hash IS 'Blockchain transaction hash';
+COMMENT ON COLUMN settlements.payee_address IS 'Address that received funds';
+COMMENT ON COLUMN settlements.payer_address IS 'Address that paid funds';
+COMMENT ON COLUMN settlements.total_amount IS 'Total amount settled in USDC smallest unit';
+COMMENT ON COLUMN settlements.voucher_count IS 'Number of vouchers aggregated';
+COMMENT ON COLUMN settlements.network IS 'Network identifier';
+COMMENT ON COLUMN settlements.voucher_ids IS 'Array of voucher UUIDs included in settlement';
+
+-- ============================================================================
+-- Migration: Add 'scheme' column to existing tables (if they exist without it)
+-- ============================================================================
+-- This handles the case where vouchers/settlements tables were created before
+-- the 'scheme' column was added. Safe to run multiple times.
+
+-- Add scheme column to vouchers table if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'vouchers' AND column_name = 'scheme'
+  ) THEN
+    ALTER TABLE vouchers ADD COLUMN scheme TEXT NOT NULL DEFAULT 'deferred';
+    ALTER TABLE vouchers ADD CONSTRAINT check_vouchers_scheme CHECK (scheme IN ('exact', 'deferred'));
+    RAISE NOTICE 'Added scheme column to vouchers table';
+  END IF;
+END $$;
+
+-- Add scheme column to settlements table if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'settlements' AND column_name = 'scheme'
+  ) THEN
+    ALTER TABLE settlements ADD COLUMN scheme TEXT NOT NULL DEFAULT 'deferred';
+    ALTER TABLE settlements ADD CONSTRAINT check_settlements_scheme CHECK (scheme IN ('exact', 'deferred'));
+    RAISE NOTICE 'Added scheme column to settlements table';
+  END IF;
+END $$;
+
+-- Add scheme indexes (safe to run multiple times with IF NOT EXISTS)
+CREATE INDEX IF NOT EXISTS idx_vouchers_scheme ON vouchers (scheme, settled);
+CREATE INDEX IF NOT EXISTS idx_settlements_scheme ON settlements (scheme, settled_at DESC);
+
+-- Update comments for scheme column
+COMMENT ON COLUMN vouchers.scheme IS 'Payment scheme: "deferred" for off-chain vouchers, "exact" for immediate settlement';
+COMMENT ON COLUMN settlements.scheme IS 'Payment scheme used for settlement: "deferred" or "exact"';

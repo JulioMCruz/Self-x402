@@ -14,10 +14,9 @@ import {
 } from "@selfxyz/qrcode"
 import { toast } from "sonner"
 import { PaymentSuccess } from "./payment-success"
-import { useAccount, useSignTypedData, useChainId } from 'wagmi'
 import { parseUnits, type TypedDataDomain, toHex, keccak256, getAddress } from 'viem'
-import { celo } from 'wagmi/chains'
 import { DEFAULT_LOGO_URL } from '../constants'
+import type { WagmiConfig } from '../types/wagmi'
 
 // USDC contract on Celo
 const USDC_ADDRESS = '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'
@@ -70,15 +69,11 @@ export interface PaymentFormProps {
   logoUrl?: string // Optional custom logo URL
   buttonText?: string // Optional custom button text (default: "Sign Payment")
   successCallbackDelay?: number // Delay in milliseconds before calling onPaymentSuccess (default: 2000ms to show animation)
+  wagmiConfig: WagmiConfig // Wagmi configuration from parent app (required)
 }
 
 // EIP-712 domain for USDC transferWithAuthorization
-const domain: TypedDataDomain = {
-  name: 'USDC',
-  version: '2',
-  chainId: celo.id,
-  verifyingContract: USDC_ADDRESS as `0x${string}`,
-}
+// Note: chainId will be set dynamically from wagmiConfig
 
 // EIP-712 types for transferWithAuthorization
 const types = {
@@ -103,8 +98,9 @@ export function PaymentForm({
   onPaymentFailure,
   logoUrl = DEFAULT_LOGO_URL,
   buttonText = "Sign Payment",
-  successCallbackDelay = 2000
-}: PaymentFormProps = {}) {
+  successCallbackDelay = 2000,
+  wagmiConfig
+}: PaymentFormProps) {
   const defaultVendorUrl = vendorUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_VENDOR_API_URL : undefined) || "http://localhost:3000"
   const defaultApiEndpoint = apiEndpoint || "/api/demo"
 
@@ -123,9 +119,8 @@ export function PaymentForm({
   const [isLoadingDiscovery, setIsLoadingDiscovery] = useState(false)
   const [currentVendorUrl] = useState(defaultVendorUrl)
 
-  const { address: walletAddress, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { signTypedDataAsync } = useSignTypedData()
+  // Destructure Wagmi config from props
+  const { address: walletAddress, isConnected, chainId, signTypedDataAsync } = wagmiConfig
 
   const excludedCountries = useMemo(() => [], [])
 
@@ -209,7 +204,7 @@ export function PaymentForm({
       return
     }
 
-    if (chainId !== celo.id) {
+    if (chainId !== 42220) { // Celo mainnet
       toast.error("Please switch to Celo network")
       return
     }
@@ -228,6 +223,14 @@ export function PaymentForm({
         validAfter: BigInt(0),
         validBefore: BigInt(now + 3600),
         nonce: nonce,
+      }
+
+      // Create EIP-712 domain dynamically with chainId from wagmiConfig
+      const domain: TypedDataDomain = {
+        name: 'USDC',
+        version: '2',
+        chainId,
+        verifyingContract: USDC_ADDRESS as `0x${string}`,
       }
 
       toast.info("Please sign the payment authorization...")
@@ -348,7 +351,7 @@ export function PaymentForm({
 
   return (
     <Card className="w-full max-w-6xl bg-card border-2 border-border rounded-3xl overflow-hidden">
-      <div className="grid lg:grid-cols-2 gap-0 lg:min-h-[600px]">
+      <div className="grid lg:grid-cols-2 gap-6 lg:min-h-[600px]">
         {/* Left Section */}
         <div className="p-8 lg:p-12 space-y-8 lg:border-r border-border">
           <div className="space-y-2 flex justify-center">
@@ -487,7 +490,7 @@ export function PaymentForm({
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Network</span>
                 <span className="font-mono">
-                  {chainId === celo.id ? '✓ Celo' : '⚠️ Wrong network'}
+                  {chainId === 42220 ? '✓ Celo' : '⚠️ Wrong network'}
                 </span>
               </div>
             )}

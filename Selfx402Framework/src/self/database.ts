@@ -1,43 +1,35 @@
 /**
- * Supabase Database Service
+ * Database service for Self Protocol nullifier management
+ * Follows Self backend standard for Sybil resistance
  *
- * Handles nullifier storage and verification for Self Protocol.
- * Prevents duplicate verifications (one passport = one verification per scope).
+ * Nullifier System:
+ * - One passport = one nullifier = one verification per scope
+ * - 90-day expiry (matches Self Protocol verification window)
+ * - Supabase for persistence (optional, falls back to in-memory)
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-export interface NullifierRecord {
-  id?: string;
-  nullifier: string;
-  scope: string;
-  created_at?: string;
-  expires_at: string;
-  user_id?: string;
-  nationality?: string;
-  metadata?: Record<string, any>;
-}
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { DatabaseConfig, NullifierRecord } from "./types.js";
 
 export class DatabaseService {
   private supabase: SupabaseClient;
   private isConnected: boolean = false;
 
-  constructor(supabaseUrl?: string, supabaseKey?: string) {
-    const url = supabaseUrl || process.env.SUPABASE_URL;
-    const key = supabaseKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!url || !key) {
-      throw new Error('Missing Supabase credentials: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
+  constructor(config: DatabaseConfig) {
+    if (!config.url || !config.serviceRoleKey) {
+      throw new Error(
+        "Missing Supabase credentials: url and serviceRoleKey required"
+      );
     }
 
-    this.supabase = createClient(url, key, {
+    this.supabase = createClient(config.url, config.serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
-        persistSession: false
-      }
+        persistSession: false,
+      },
     });
 
-    console.log('✅ Supabase database service initialized');
+    console.log("✅ Supabase database service initialized");
   }
 
   /**
@@ -46,21 +38,21 @@ export class DatabaseService {
   async testConnection(): Promise<boolean> {
     try {
       const { error } = await this.supabase
-        .from('nullifiers')
-        .select('id')
+        .from("nullifiers")
+        .select("id")
         .limit(1);
 
       if (error) {
-        console.error('❌ Database connection test failed:', error.message);
+        console.error("❌ Database connection test failed:", error.message);
         this.isConnected = false;
         return false;
       }
 
       this.isConnected = true;
-      console.log('✅ Database connection successful');
+      console.log("✅ Database connection successful");
       return true;
     } catch (error) {
-      console.error('❌ Database connection error:', error);
+      console.error("❌ Database connection error:", error);
       this.isConnected = false;
       return false;
     }
@@ -68,39 +60,43 @@ export class DatabaseService {
 
   /**
    * Check if nullifier exists for given scope
+   * Following Self backend standard for duplicate detection
+   *
    * @returns true if nullifier already used, false if available
    */
   async checkNullifierExists(nullifier: string, scope: string): Promise<boolean> {
     try {
       const { data, error } = await this.supabase
-        .from('nullifiers')
-        .select('id')
-        .eq('nullifier', nullifier)
-        .eq('scope', scope)
-        .gt('expires_at', new Date().toISOString())
+        .from("nullifiers")
+        .select("id")
+        .eq("nullifier", nullifier)
+        .eq("scope", scope)
+        .gt("expires_at", new Date().toISOString())
         .limit(1);
 
       if (error) {
-        console.error('Error checking nullifier:', error);
+        console.error("Error checking nullifier:", error);
         throw new Error(`Database error: ${error.message}`);
       }
 
       const exists = data && data.length > 0;
 
       if (exists) {
-        console.log(`⚠️  Nullifier already exists: ${nullifier.substring(0, 10)}... (scope: ${scope})`);
+        console.log(
+          `⚠️  Nullifier already exists: ${nullifier.substring(0, 10)}... (scope: ${scope})`
+        );
       }
 
       return exists;
-
     } catch (error) {
-      console.error('Nullifier check failed:', error);
+      console.error("Nullifier check failed:", error);
       throw error;
     }
   }
 
   /**
    * Store nullifier with 90-day expiry
+   * Follows Self Protocol standard for verification persistence
    */
   async storeNullifier(
     nullifier: string,
@@ -120,25 +116,24 @@ export class DatabaseService {
         expires_at: expiresAt.toISOString(),
         user_id: userId,
         nationality,
-        metadata: metadata || {}
+        metadata: metadata || {},
       };
 
-      const { error } = await this.supabase
-        .from('nullifiers')
-        .insert(record);
+      const { error } = await this.supabase.from("nullifiers").insert(record);
 
       if (error) {
         // Check for unique constraint violation
-        if (error.code === '23505') {
-          throw new Error('Nullifier already exists for this scope');
+        if (error.code === "23505") {
+          throw new Error("Nullifier already exists for this scope");
         }
         throw new Error(`Database error: ${error.message}`);
       }
 
-      console.log(`✅ Nullifier stored: ${nullifier.substring(0, 10)}... (scope: ${scope}, expires: ${expiresAt.toISOString()})`);
-
+      console.log(
+        `✅ Nullifier stored: ${nullifier.substring(0, 10)}... (scope: ${scope}, expires: ${expiresAt.toISOString()})`
+      );
     } catch (error) {
-      console.error('Failed to store nullifier:', error);
+      console.error("Failed to store nullifier:", error);
       throw error;
     }
   }
@@ -146,18 +141,21 @@ export class DatabaseService {
   /**
    * Get nullifier record by nullifier and scope
    */
-  async getNullifier(nullifier: string, scope: string): Promise<NullifierRecord | null> {
+  async getNullifier(
+    nullifier: string,
+    scope: string
+  ): Promise<NullifierRecord | null> {
     try {
       const { data, error } = await this.supabase
-        .from('nullifiers')
-        .select('*')
-        .eq('nullifier', nullifier)
-        .eq('scope', scope)
+        .from("nullifiers")
+        .select("*")
+        .eq("nullifier", nullifier)
+        .eq("scope", scope)
         .limit(1)
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') {
+        if (error.code === "PGRST116") {
           // No rows returned
           return null;
         }
@@ -165,9 +163,8 @@ export class DatabaseService {
       }
 
       return data;
-
     } catch (error) {
-      console.error('Failed to get nullifier:', error);
+      console.error("Failed to get nullifier:", error);
       throw error;
     }
   }
@@ -175,13 +172,16 @@ export class DatabaseService {
   /**
    * Get all nullifiers for a scope (for analytics)
    */
-  async getNullifiersByScope(scope: string, limit: number = 100): Promise<NullifierRecord[]> {
+  async getNullifiersByScope(
+    scope: string,
+    limit: number = 100
+  ): Promise<NullifierRecord[]> {
     try {
       const { data, error } = await this.supabase
-        .from('nullifiers')
-        .select('*')
-        .eq('scope', scope)
-        .order('created_at', { ascending: false })
+        .from("nullifiers")
+        .select("*")
+        .eq("scope", scope)
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -189,23 +189,23 @@ export class DatabaseService {
       }
 
       return data || [];
-
     } catch (error) {
-      console.error('Failed to get nullifiers by scope:', error);
+      console.error("Failed to get nullifiers by scope:", error);
       throw error;
     }
   }
 
   /**
    * Delete expired nullifiers (cleanup job)
+   * Should be run periodically (e.g., daily cron)
    */
   async cleanupExpiredNullifiers(): Promise<number> {
     try {
       const { data, error } = await this.supabase
-        .from('nullifiers')
+        .from("nullifiers")
         .delete()
-        .lt('expires_at', new Date().toISOString())
-        .select('id');
+        .lt("expires_at", new Date().toISOString())
+        .select("id");
 
       if (error) {
         throw new Error(`Database error: ${error.message}`);
@@ -214,9 +214,8 @@ export class DatabaseService {
       const deletedCount = data?.length || 0;
       console.log(`🧹 Cleaned up ${deletedCount} expired nullifiers`);
       return deletedCount;
-
     } catch (error) {
-      console.error('Cleanup failed:', error);
+      console.error("Cleanup failed:", error);
       throw error;
     }
   }
@@ -234,38 +233,37 @@ export class DatabaseService {
 
       // Total count
       const { count: total, error: totalError } = await this.supabase
-        .from('nullifiers')
-        .select('id', { count: 'exact', head: true })
-        .eq('scope', scope);
+        .from("nullifiers")
+        .select("id", { count: "exact", head: true })
+        .eq("scope", scope);
 
       if (totalError) throw totalError;
 
       // Active count (not expired)
       const { count: active, error: activeError } = await this.supabase
-        .from('nullifiers')
-        .select('id', { count: 'exact', head: true })
-        .eq('scope', scope)
-        .gt('expires_at', now);
+        .from("nullifiers")
+        .select("id", { count: "exact", head: true })
+        .eq("scope", scope)
+        .gt("expires_at", now);
 
       if (activeError) throw activeError;
 
       // Expired count
       const { count: expired, error: expiredError } = await this.supabase
-        .from('nullifiers')
-        .select('id', { count: 'exact', head: true })
-        .eq('scope', scope)
-        .lt('expires_at', now);
+        .from("nullifiers")
+        .select("id", { count: "exact", head: true })
+        .eq("scope", scope)
+        .lt("expires_at", now);
 
       if (expiredError) throw expiredError;
 
       return {
         total: total || 0,
         active: active || 0,
-        expired: expired || 0
+        expired: expired || 0,
       };
-
     } catch (error) {
-      console.error('Failed to get scope stats:', error);
+      console.error("Failed to get scope stats:", error);
       throw error;
     }
   }

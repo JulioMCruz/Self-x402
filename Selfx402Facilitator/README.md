@@ -14,6 +14,8 @@ This facilitator enables:
 ### Key Features
 
 - ✅ x402 standard payment verification and settlement
+- ✅ **Deferred payment scheme (x402 PR #426 - Option A)** - NEW! 🆕
+- ✅ **Voucher aggregation for micro-payments** - NEW! 🆕
 - ✅ Self Protocol zero-knowledge proof validation
 - ✅ EIP-3009 transferWithAuthorization (gasless USDC transfers)
 - ✅ Nullifier management (one passport = one verification)
@@ -43,8 +45,11 @@ npm install
 
 **Run Database Schema:**
 1. Go to SQL Editor in Supabase dashboard
-2. Copy contents from `database/schema.sql`
-3. Execute SQL to create `nullifiers` table
+2. Copy and run the complete schema from [database/schema.sql](database/schema.sql)
+   - Creates `nullifiers` table for Self Protocol verification
+   - Creates `vouchers` table for off-chain payment vouchers (x402 PR #426)
+   - Creates `settlements` table for on-chain settlement records (x402 PR #426)
+   - All tables include proper indexes, constraints, and RLS policies
 
 **Get API Credentials:**
 1. Go to Project Settings → API
@@ -148,7 +153,18 @@ Returns the payment kinds this facilitator supports.
     {
       "scheme": "exact",
       "networkId": "celo",
-      "extra": { "name": "USD Coin", "version": "2" }
+      "extra": { "name": "USDC", "version": "2" }
+    },
+    {
+      "scheme": "deferred",
+      "networkId": "celo",
+      "extra": {
+        "name": "USDC",
+        "version": "2",
+        "description": "x402 PR #426 - Deferred payment with voucher aggregation",
+        "minSettlementAmount": "10000000",
+        "minVoucherCount": 5
+      }
     }
   ]
 }
@@ -308,6 +324,387 @@ Settles a Celo payment by executing transferWithAuthorization.
   "explorer": "https://celoscan.io/tx/0x..."
 }
 ```
+
+### Deferred Payment Endpoints (NEW! 🆕)
+
+Implementation of x402 PR #426 - Option A: Basic deferred scheme for micro-payment aggregation.
+
+**Benefits**:
+- ✅ **99% gas savings**: Reduces gas overhead from 2000% to 2% for micro-payments
+- ✅ **Off-chain aggregation**: Store vouchers in database, settle in batches
+- ✅ **EIP-712 signatures**: Phishing-resistant typed data signing
+- ✅ **x402 compliant**: Maintains full x402 protocol compatibility
+- ✅ **Structured logging**: Event-based monitoring with `authorization_state` tracking
+
+**Gas Savings Example**:
+```
+1000 micro-payments of $0.001 each:
+  Immediate: 1000 × $0.02 = $20.00 gas (2000% overhead) 🔴
+  Deferred:  1 × $0.02 = $0.02 gas (2% overhead) ✅
+  Savings: 99% reduction
+```
+
+#### POST `/deferred/verify`
+Verify and store off-chain payment voucher (no on-chain transaction).
+
+**Purpose**: Accept micro-payments off-chain using EIP-712 signed vouchers.
+
+**Flow**:
+1. Client creates EIP-712 voucher with payer, payee, amount, nonce, validUntil
+2. Client signs voucher with wallet (MetaMask, WalletConnect, etc.)
+3. Client sends signed voucher to facilitator
+4. Facilitator verifies signature matches payer address
+5. Facilitator checks nonce uniqueness (prevent double-spend)
+6. Facilitator stores voucher in database
+7. Returns voucher_id and authorization_state
+
+**Request:**
+```json
+{
+  "scheme": "deferred",
+  "network": "celo",
+  "voucher": {
+    "payer": "0xPayer...",
+    "payee": "0xPayee...",
+    "amount": "1000",
+    "nonce": "0x...",
+    "validUntil": 1234567890
+  },
+  "signature": "0x..."
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "verified": true,
+  "voucher_id": "550e8400-e29b-41d4-a716-446655440000",
+  "signer": "0xPayer...",
+  "expires_at": "2024-01-01T00:00:00.000Z",
+  "authorization_state": "verified_stored",
+  "scheme": "deferred"
+}
+```
+
+**Response (Error - Invalid Signature):**
+```json
+{
+  "error": "Invalid signature",
+  "details": "Recovered signer does not match payer address",
+  "authorization_state": "invalid_signature"
+}
+```
+
+**Response (Error - Duplicate Nonce):**
+```json
+{
+  "error": "Voucher already exists",
+  "authorization_state": "duplicate_nonce"
+}
+```
+
+**Authorization States** (verify endpoint):
+- `pending` → Initial state when request received
+- `validating_structure` → Checking envelope format
+- `verifying_signature` → EIP-712 signature validation
+- `checking_duplicate` → Nonce uniqueness check
+- `storing_voucher` → Database insertion
+- `verified_stored` → ✅ Success
+- `invalid_structure` → ❌ Malformed envelope
+- `invalid_signature` → ❌ Signature verification failed
+- `duplicate_nonce` → ❌ Voucher already exists
+- `error` → ❌ Other error
+
+**Structured Logging** (x402 PR #426 compliance):
+```
+[deferred.verify] Received voucher verification request
+  scheme: deferred
+  payer: 0xPayer...
+  payee: 0xPayee...
+  amount: 1000
+  network: celo
+
+[deferred.verify.ok] ✅ Voucher verified and stored successfully
+  scheme: deferred
+  voucher_id: 550e8400-e29b-41d4-a716-446655440000
+  payer: 0xPayer...
+  payee: 0xPayee...
+  amount: 1000
+  network: celo
+  signer: 0xSigner...
+  authorization_state: verified_stored
+  duration_ms: 45
+```
+
+#### POST `/deferred/settle`
+Aggregate unsettled vouchers and settle on-chain in batch.
+
+**Purpose**: Reduce gas costs by settling multiple vouchers in one transaction.
+
+**Flow**:
+1. Fetch unsettled vouchers from database (by payee, optionally by payer)
+2. Validate all vouchers are from same payer/payee pair
+3. Calculate total aggregated amount
+4. Create EIP-3009 authorization using last voucher's signature
+5. Execute on-chain USDC transfer using `transferWithAuthorization`
+6. Mark all vouchers as settled in database
+7. Store settlement record with transaction hash
+
+**Request:**
+```json
+{
+  "payee": "0xPayee...",
+  "network": "celo",
+  "payer": "0xPayer...",
+  "minAmount": "10000000"
+}
+```
+
+**Query Parameters**:
+- `payee` (required): Address to settle funds to
+- `network` (required): "celo" or "celo-sepolia"
+- `payer` (optional): Specific payer address to settle from (defaults to all payers)
+- `minAmount` (optional): Minimum total amount to settle (reject if below threshold)
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "txHash": "0xabc...",
+  "blockNumber": "12345678",
+  "totalAmount": "50000000",
+  "voucherCount": 50,
+  "settlementId": "660e8400-e29b-41d4-a716-446655440000",
+  "voucherIds": ["uuid1", "uuid2", ...],
+  "authorization_state": "settled_confirmed",
+  "scheme": "deferred",
+  "explorer": "https://celoscan.io/tx/0xabc..."
+}
+```
+
+**Response (Error - No Vouchers):**
+```json
+{
+  "error": "No unsettled vouchers found",
+  "authorization_state": "no_vouchers"
+}
+```
+
+**Response (Error - Settlement Reverted):**
+```json
+{
+  "error": "Settlement transaction reverted",
+  "details": "Insufficient USDC balance",
+  "authorization_state": "settlement_reverted"
+}
+```
+
+**Authorization States** (settle endpoint):
+- `pending` → Initial state when request received
+- `fetching_vouchers` → Querying database for unsettled vouchers
+- `validating_aggregation` → Checking vouchers can be aggregated
+- `preparing_settlement` → Creating payment envelope
+- `executing_onchain` → Submitting blockchain transaction
+- `updating_database` → Marking vouchers as settled
+- `settled_confirmed` → ✅ Success
+- `no_vouchers` → ❌ No unsettled vouchers found
+- `settlement_reverted` → ❌ On-chain transaction failed
+- `error` → ❌ Other error
+
+**Structured Logging** (x402 PR #426 compliance):
+```
+[deferred.settle] Received settlement request
+  scheme: deferred
+  payee: 0xPayee...
+  payer: all
+  network: celo
+  minAmount: none
+  Found 5 unsettled vouchers: 1, 2, 3, 4, 5
+  Total amount: 5000 (0.005 USDC)
+  Executing on-chain settlement...
+
+[deferred.settle.ok] ✅ Settlement completed successfully
+  scheme: deferred
+  settlement_id: 660e8400-e29b-41d4-a716-446655440000
+  tx_hash: 0xabc...
+  block_number: 12345678
+  voucher_count: 5
+  voucher_ids: 1, 2, 3, 4, 5
+  total_amount: 5000 (0.005 USDC)
+  payer: 0xPayer...
+  payee: 0xPayee...
+  network: celo
+  authorization_state: settled_confirmed
+  duration_ms: 2350
+```
+
+**Revert Logging** (x402 PR #426 compliance):
+```
+[deferred.settle.revert] ❌ On-chain settlement reverted
+  authorization_state: settlement_reverted
+  error: Insufficient USDC balance
+  voucher_count: 5
+  voucher_ids: 1, 2, 3, 4, 5
+  total_amount: 5000
+  duration_ms: 1200
+```
+
+#### GET `/deferred/balance/:payee`
+Get accumulated unsettled balance for a payee address.
+
+**Purpose**: Query how much USDC is ready to settle.
+
+**Request:**
+```
+GET /deferred/balance/0xPayee...?network=celo
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "payee": "0xpayee...",
+  "network": "celo",
+  "totalBalance": "150000000",
+  "balancesByPayer": [
+    {
+      "payer": "0xpayer1...",
+      "amount": "100000000",
+      "voucherCount": 100,
+      "voucherIds": ["uuid1", ...]
+    },
+    {
+      "payer": "0xpayer2...",
+      "amount": "50000000",
+      "voucherCount": 50,
+      "voucherIds": ["uuid2", ...]
+    }
+  ]
+}
+```
+
+### Deferred Payment Integration Examples
+
+#### Client-Side: Create and Sign Voucher
+
+```typescript
+import { createVoucher, signVoucher, createVoucherDomain } from "selfx402-framework";
+import { useWalletClient } from "wagmi";
+
+// Create voucher for micro-payment
+const voucher = createVoucher({
+  payer: "0xPayer...",
+  payee: "0xPayee...",
+  amount: BigInt(1000), // 0.001 USDC (6 decimals)
+  validityDuration: 3600, // 1 hour
+});
+
+// Create EIP-712 domain for Celo mainnet
+const domain = createVoucherDomain(
+  42220, // Celo mainnet chain ID
+  "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" // USDC address
+);
+
+// Sign voucher using wallet
+const { data: walletClient } = useWalletClient();
+const signature = await walletClient.signTypedData({
+  domain,
+  types: voucherTypes,
+  primaryType: "PaymentVoucher",
+  message: voucher,
+});
+
+// Send to facilitator for verification
+const response = await fetch("https://facilitator.com/deferred/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    scheme: "deferred",
+    network: "celo",
+    voucher,
+    signature,
+  }),
+});
+
+const result = await response.json();
+console.log(`Voucher stored! ID: ${result.voucher_id}`);
+```
+
+#### Server-Side: Check Balance and Settle
+
+```typescript
+// Check accumulated balance
+const balanceResponse = await fetch(
+  "https://facilitator.com/deferred/balance/0xPayee...?network=celo"
+);
+const balance = await balanceResponse.json();
+
+console.log(`Total balance: ${balance.totalBalance} USDC`);
+console.log(`From ${balance.balancesByPayer.length} payers`);
+
+// Settle when threshold met (e.g., $10 USDC)
+if (balance.totalBalance >= "10000000") {
+  const settlementResponse = await fetch("https://facilitator.com/deferred/settle", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      payee: "0xPayee...",
+      network: "celo",
+      minAmount: "10000000", // $10 USDC
+    }),
+  });
+
+  const settlement = await settlementResponse.json();
+  console.log(`Settled ${settlement.voucherCount} vouchers`);
+  console.log(`Transaction: ${settlement.explorer}`);
+}
+```
+
+### Database Schema Tagging (x402 PR #426)
+
+All vouchers and settlements are tagged with `scheme` column for future-proofing:
+
+```sql
+-- Vouchers table (includes scheme column)
+CREATE TABLE vouchers (
+  id UUID PRIMARY KEY,
+  payer_address TEXT NOT NULL,
+  payee_address TEXT NOT NULL,
+  amount TEXT NOT NULL,
+  nonce TEXT NOT NULL UNIQUE,
+  signature TEXT NOT NULL,
+  valid_until TIMESTAMP NOT NULL,
+  settled BOOLEAN DEFAULT false,
+  network TEXT NOT NULL,
+  scheme TEXT NOT NULL DEFAULT 'deferred' CHECK (scheme IN ('exact', 'deferred')),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Settlements table (includes scheme column)
+CREATE TABLE settlements (
+  id UUID PRIMARY KEY,
+  tx_hash TEXT NOT NULL UNIQUE,
+  payee_address TEXT NOT NULL,
+  payer_address TEXT NOT NULL,
+  total_amount TEXT NOT NULL,
+  voucher_count INTEGER NOT NULL,
+  network TEXT NOT NULL,
+  scheme TEXT NOT NULL DEFAULT 'deferred' CHECK (scheme IN ('exact', 'deferred')),
+  settled_at TIMESTAMP DEFAULT NOW(),
+  voucher_ids TEXT[]
+);
+```
+
+**Migration**: Run [../Selfx402Framework/src/deferred/schema-migration-add-scheme.sql](../Selfx402Framework/src/deferred/schema-migration-add-scheme.sql) to add `scheme` column to existing tables.
+
+### Complete Documentation
+
+**See these resources for full details**:
+- [../Docs/DEFERRED-PAYMENTS.md](../Docs/DEFERRED-PAYMENTS.md) - Complete deferred payment guide
+- [../Docs/X402-PR-426-COMPLIANCE.md](../Docs/X402-PR-426-COMPLIANCE.md) - x402 PR #426 compliance report
+- [selfx402-framework README](../Selfx402Framework/README.md) - Framework integration examples
+- [selfx402-framework on npm](https://www.npmjs.com/package/selfx402-framework) - Published package
 
 ### System Endpoints
 

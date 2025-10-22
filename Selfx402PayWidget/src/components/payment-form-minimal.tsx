@@ -10,11 +10,10 @@ import {
   type SelfApp,
 } from "@selfxyz/qrcode"
 import { toast } from "sonner"
-import { useAccount, useChainId, useSignTypedData, useReadContract } from 'wagmi'
 import { parseUnits, formatUnits, type TypedDataDomain, toHex, keccak256, getAddress } from 'viem'
-import { celo } from 'wagmi/chains'
 import { PaymentSuccess } from "./payment-success"
 import { DEFAULT_LOGO_URL } from '../constants'
+import type { WagmiConfig } from '../types/wagmi'
 
 const USDC_ADDRESS = '0xcebA9300f2b948710d2653dD7B07f33A8B32118C' as const
 
@@ -29,12 +28,7 @@ const ERC20_ABI = [
   },
 ] as const
 
-const domain: TypedDataDomain = {
-  name: 'USDC',
-  version: '2',
-  chainId: celo.id,
-  verifyingContract: USDC_ADDRESS as `0x${string}`,
-}
+// EIP-712 domain will be created dynamically using chainId from wagmiConfig
 
 const types = {
   TransferWithAuthorization: [
@@ -59,6 +53,7 @@ export interface PaymentFormMinimalProps {
   logoUrl?: string
   buttonText?: string // Optional custom button text (default: "Sign Payment")
   successCallbackDelay?: number // Delay in milliseconds before calling onPaymentSuccess (default: 2000ms to show animation)
+  wagmiConfig: WagmiConfig // Wagmi configuration from parent app (required)
 }
 
 export function PaymentFormMinimal({
@@ -72,8 +67,9 @@ export function PaymentFormMinimal({
   onPaymentFailure,
   logoUrl = DEFAULT_LOGO_URL,
   buttonText = "Sign Payment",
-  successCallbackDelay = 2000
-}: PaymentFormMinimalProps = {}) {
+  successCallbackDelay = 2000,
+  wagmiConfig
+}: PaymentFormMinimalProps) {
   const defaultVendorUrl = vendorUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_VENDOR_API_URL : undefined) || "http://localhost:3000"
   const defaultApiEndpoint = apiEndpoint || "/api/demo"
 
@@ -88,20 +84,29 @@ export function PaymentFormMinimal({
   const [txHash, setTxHash] = useState<string>("")
   const [apiResponse, setApiResponse] = useState<any>(null)
 
-  const { address: walletAddress, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { signTypedDataAsync } = useSignTypedData()
+  // Destructure Wagmi config from props
+  const { address: walletAddress, isConnected, chainId, signTypedDataAsync, readContract } = wagmiConfig
 
-  // Read USDC balance
-  const { data: usdcBalance, isLoading: isLoadingBalance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: walletAddress ? [walletAddress] : undefined,
-    chainId: celo.id,
-  })
+  // Read USDC balance using readContract from wagmiConfig
+  const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null)
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false)
 
-  const formattedBalance = usdcBalance ? formatUnits(usdcBalance as bigint, 6) : '0.00'
+  useEffect(() => {
+    if (!walletAddress || !readContract) return
+
+    setIsLoadingBalance(true)
+    readContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [walletAddress],
+    })
+      .then((balance) => setUsdcBalance(balance as bigint))
+      .catch((err) => console.error('Failed to read USDC balance:', err))
+      .finally(() => setIsLoadingBalance(false))
+  }, [walletAddress, readContract])
+
+  const formattedBalance = usdcBalance ? formatUnits(usdcBalance, 6) : '0.00'
 
   const excludedCountries = useMemo(() => [], [])
 
@@ -164,7 +169,7 @@ export function PaymentFormMinimal({
       return
     }
 
-    if (chainId !== celo.id) {
+    if (chainId !== 42220) { // Celo mainnet
       toast.error("Please switch to Celo network")
       return
     }
@@ -188,6 +193,14 @@ export function PaymentFormMinimal({
         validAfter: BigInt(0),
         validBefore: BigInt(now + 3600),
         nonce: nonce,
+      }
+
+      // Create EIP-712 domain dynamically with chainId from wagmiConfig
+      const domain: TypedDataDomain = {
+        name: 'USDC',
+        version: '2',
+        chainId,
+        verifyingContract: USDC_ADDRESS as `0x${string}`,
       }
 
       toast.info("Please sign the payment...")
@@ -392,7 +405,7 @@ export function PaymentFormMinimal({
 
         <div className="pt-2 border-t space-y-1">
           <div className="text-xs text-center text-muted-foreground">
-            {isConnected && chainId === celo.id ? '✓ Connected to Celo' : '⚠️ Connect wallet'}
+            {isConnected && chainId === 42220 ? '✓ Connected to Celo' : '⚠️ Connect wallet'}
           </div>
           {isConnected && (
             <div className="text-xs text-center text-muted-foreground">

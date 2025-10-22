@@ -17,9 +17,7 @@ node_modules/
 test/
 tests/
 *.test.ts
-*.test.tsx
 *.spec.ts
-*.spec.tsx
 
 # Documentation (except README.md)
 docs/
@@ -39,6 +37,5 @@ examples/
 .DS_Store
 Thumbs.db
 
-# Demo/example files
-demo/
-playground/
+# SQL migration files (not needed in npm package)
+*.sql

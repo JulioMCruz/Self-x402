@@ -1,6 +1,6 @@
 {
-  "name": "@selfx402/pay-widget",
-  "version": "0.1.0",
+  "name": "selfx402-pay-widget",
+  "version": "1.0.0",
   "description": "Self Protocol + x402 payment widget for React applications - Proof-of-unique-human verification with gasless USDC payments on Celo",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -11,15 +11,15 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --external react --external react-dom",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --external react --external react-dom --watch",
+    "build": "npx tsup src/index.ts --format cjs,esm --dts --external react --external react-dom",
+    "dev": "npx tsup src/index.ts --format cjs,esm --dts --external react --external react-dom --watch",
     "prepublishOnly": "npm run build",
     "type-check": "tsc --noEmit"
   },
@@ -36,18 +36,35 @@
     "proof-of-unique-human",
     "zk-proof",
     "identity",
-    "verification"
+    "verification",
+    "zknexus",
+    "deferred-payments",
+    "micropayments"
   ],
-  "author": "Selfx402 Team",
+  "author": {
+    "name": "zkNexus",
+    "email": "contact@zknexus.xyz",
+    "url": "https://www.zknexus.xyz"
+  },
+  "contributors": [
+    {
+      "name": "Julio M Cruz",
+      "url": "https://github.com/JulioMCruz"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/selfx402-pay-widget.git"
+    "url": "https://github.com/JulioMCruz/Self-x402.git",
+    "directory": "Selfx402PayWidget"
   },
   "bugs": {
-    "url": "https://github.com/your-org/selfx402-pay-widget/issues"
+    "url": "https://github.com/JulioMCruz/Self-x402/issues"
   },
-  "homepage": "https://selfx402.xyz",
+  "homepage": "https://www.zknexus.xyz",
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
@@ -60,9 +77,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",
     "sonner": "^1.7.4",
-    "tailwind-merge": "^2.5.5",
-    "viem": "^2.38.3",
-    "wagmi": "^2.18.1"
+    "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
     "@types/estree": "^1.0.8",

@@ -10,6 +10,9 @@ export { cn } from './lib/utils'
 // Export constants
 export { DEFAULT_LOGO_URL } from './constants'
 
+// Export types
+export type { WagmiConfig } from './types/wagmi'
+
 // Export payment components
 export { PaymentForm } from './components/payment-form'
 export type { PaymentFormProps } from './components/payment-form'

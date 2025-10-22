@@ -13,7 +13,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Current Status**:
 - **Day 4 of Self ZK Residency** (Oct 14-31, 2025)
 - ✅ Phase 1A complete (x402 payment system working on Celo mainnet)
+- ✅ Framework published to npm as `selfx402-framework@1.0.0`
+- ✅ Payment widget published to npm as `selfx402-pay-widget@1.0.0`
 - 🚧 Phase 1B in progress (Self Protocol integration for tiered pricing)
+
+**📦 Published NPM Packages**:
+- **[selfx402-framework](https://www.npmjs.com/package/selfx402-framework)** - Complete facilitator server framework
+  - x402 payment verification and settlement
+  - Self Protocol integration
+  - Deferred payment scheme (x402 PR #426)
+  - PostgreSQL/Supabase database support
+- **[selfx402-pay-widget](https://www.npmjs.com/package/selfx402-pay-widget)** - React payment widget
+  - Self Protocol QR code verification
+  - x402 payment UI components
+  - Wagmi/viem integration
+  - Customizable with Radix UI + Tailwind
 
 **📚 Complete Documentation**:
 - [README.md](README.md) - **Quick start guide** with Mermaid diagrams

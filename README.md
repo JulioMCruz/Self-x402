@@ -15,7 +15,7 @@ Selfx402 combines [Self Protocol](https://docs.self.xyz) (zero-knowledge passpor
 
 ## 💡 The Solution
 
-**One-time verification** (Self Protocol) + **Instant micropayments** (x402) = **Tiered pricing**
+**One-time verification** (Self Protocol) + **Instant micropayments** (x402) + **Deferred settlement** = **Tiered pricing without gas overhead**
 
 ```
 Bot Request:    $1.00 per API call
@@ -23,7 +23,10 @@ Human Request:  $0.001 per API call (1000x cheaper)
 Premium Human:  $0.0005 per API call (2000x cheaper)
 ```
 
-**Key Innovation**: Cryptographic proof of unique humanity (not just "I'm human", but "I'm a unique human with a real passport") combined with instant USDC micropayments on Celo blockchain.
+**Key Innovations**:
+1. **Cryptographic proof of unique humanity** (not just "I'm human", but "I'm a unique human with a real passport")
+2. **Instant USDC micropayments** on Celo blockchain using x402 protocol
+3. **Deferred payment scheme (NEW!)** - Aggregate micro-payments to reduce gas costs from 2000% to 2%
 
 ---
 
@@ -61,7 +64,7 @@ graph TB
     subgraph SelfMiddleware["SELF PROTOCOL MIDDLEWARE"]
         QRGen[📱 QR Code Generator<br/>@selfxyz/qrcode]
         ProofCache[💾 Proof Cache<br/>localStorage/90 days]
-        ClientSDK[🔧 Client SDK<br/>@selfx402/client]
+        ClientSDK[🔧 Pay Widget<br/>selfx402-pay-widget]
     end
 
     subgraph Facilitator["SELFX402 FACILITATOR"]
@@ -71,7 +74,7 @@ graph TB
     end
 
     subgraph Vendors["VENDOR ENDPOINTS"]
-        VendorMiddleware[🛡️ Selfx402 Middleware<br/>@selfx402/express]
+        VendorMiddleware[🛡️ Selfx402 Framework<br/>selfx402-framework]
         VendorAPI[🔌 Vendor API Logic]
         VendorServices[⚙️ Services<br/>AI, Data, Compute]
     end
@@ -271,7 +274,7 @@ sequenceDiagram
     rect rgb(255, 245, 240)
         Note over Vendor,Consumers: Integration
         Vendor->>VendorAPI: 10. Install middleware
-        Note over VendorAPI: npm install @selfx402/express
+        Note over VendorAPI: npm install selfx402-framework
 
         Vendor->>VendorAPI: 11. Add middleware code
         VendorAPI->>Middleware: 12. Initialize with API key
@@ -316,6 +319,10 @@ sequenceDiagram
 
 4. **Enjoy 1000x cheaper pricing** for 90 days (no re-scan needed)
 
+**Payment Options**:
+- **Immediate**: On-chain settlement per request (best for high-value transactions)
+- **Deferred**: Off-chain vouchers, batch settlement (best for micro-payments <$0.01)
+
 ### For Vendors
 
 1. **Sign up** at `https://selfx402.com/vendors`
@@ -325,14 +332,14 @@ sequenceDiagram
    - Professional: $99/month, 500k transactions
    - Enterprise: $499/month, 5M transactions
 
-3. **Install middleware**:
+3. **Install framework**:
    ```bash
-   npm install @selfx402/express
+   npm install selfx402-framework
    ```
 
 4. **Add 5 lines of code**:
    ```typescript
-   import { selfx402Middleware } from '@selfx402/express';
+   import { Facilitator } from 'selfx402-framework';
 
    app.use('/api', selfx402Middleware({
      apiKey: process.env.SELFX402_API_KEY,
@@ -472,13 +479,12 @@ sequenceDiagram
 - **Tools**: Viem for blockchain interactions
 - **Testing**: Jest with end-to-end payment flow tests
 
-### Integration Packages
+### Published NPM Packages
 
-- **`@selfx402/express`**: Express.js middleware (planned)
-- **`@selfx402/next`**: Next.js API routes (planned)
-- **`@selfx402/client`**: Browser client (planned)
-- **`@selfxyz/qrcode`**: Self QR code generation (active)
-- **`@selfxyz/backend`**: Self proof verification (active)
+- **`selfx402-framework`**: Complete facilitator server framework with x402 + Self Protocol integration ✅ [npm](https://www.npmjs.com/package/selfx402-framework)
+- **`selfx402-pay-widget`**: React payment widget for consumer applications ✅ [npm](https://www.npmjs.com/package/selfx402-pay-widget)
+- **`@selfxyz/qrcode`**: Self Protocol QR code generation (active)
+- **`@selfxyz/backend`**: Self Protocol proof verification (active)
 
 ---
 
@@ -494,6 +500,7 @@ sequenceDiagram
 - **[Vendors/Places-x402-Api/README-CELO.md](Vendors/Places-x402-Api/README-CELO.md)** - x402 payment implementation
 - **[Vendors/Places-x402-Api/CELO-X402-ARCHITECTURE.md](Vendors/Places-x402-Api/CELO-X402-ARCHITECTURE.md)** - Architecture deep-dive
 - **[Selfx402Facilitator/README.md](Selfx402Facilitator/README.md)** - Payment facilitator service
+- **[Docs/DEFERRED-PAYMENTS.md](Docs/DEFERRED-PAYMENTS.md)** - Deferred payment scheme guide (NEW! 🆕)
 
 ### External Resources
 
@@ -515,18 +522,20 @@ sequenceDiagram
 
 ### Completed ✅
 
-- x402 payment system on Celo mainnet
-- CeloFacilitator verification service
-- Custom payment middleware
-- Payment flow testing
-- Product definition and architecture
+- ✅ x402 payment system on Celo mainnet
+- ✅ CeloFacilitator verification service
+- ✅ Custom payment middleware
+- ✅ Payment flow testing
+- ✅ Product definition and architecture
+- ✅ **Deferred payment scheme (x402 PR #426 - Option A)** 🆕
+- ✅ **Voucher database and aggregation system** 🆕
 
 ### In Progress 🚧
 
-- Self Protocol integration (QR code, proof verification)
-- Nullifier database implementation
-- Multi-tier pricing engine
-- Marketplace frontend MVP
+- 🚧 Self Protocol integration (QR code, proof verification)
+- 🚧 Nullifier database implementation
+- 🚧 Multi-tier pricing engine
+- 🚧 Marketplace frontend MVP
 
 ### Phase 1 Deliverables (by Oct 31)
 
@@ -589,6 +598,10 @@ FACILITATOR_URL=http://localhost:3005
 ```bash
 CELO_MAINNET_PRIVATE_KEY=0x...
 CELO_MAINNET_RPC_URL=https://forno.celo.org
+
+# For deferred payments (optional)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
 ---

@@ -1,11 +1,33 @@
 "use client"
 
-import { PaymentForm, PaymentFormMinimal } from "@selfx402/pay-widget"
+import { PaymentForm, PaymentFormMinimal, type WagmiConfig } from "selfx402-pay-widget"
 import SelfVerification from "@/components/self-verification"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useAccount, useSignTypedData, useChainId, useReadContract, useConfig } from 'wagmi'
+import { useMemo } from 'react'
 
 export default function Home() {
+  // Wagmi hooks (from parent app's provider)
+  const wagmiConfig = useConfig()
+  const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { signTypedDataAsync } = useSignTypedData()
+  const { refetch: readContract } = useReadContract()
+
+  // Create WagmiConfig object to pass to widget
+  const wagmiConfigProp: WagmiConfig = useMemo(() => ({
+    config: wagmiConfig,
+    address,
+    isConnected,
+    chainId,
+    signTypedDataAsync,
+    readContract: async (args: any) => {
+      const result = await readContract(args as any)
+      return result.data
+    }
+  }), [wagmiConfig, address, isConnected, chainId, signTypedDataAsync, readContract])
+
   // Get vendor URL from environment or use default
   const vendorUrl = process.env.NEXT_PUBLIC_VENDOR_API_URL || "http://localhost:3000"
 
@@ -93,6 +115,7 @@ export default function Home() {
               successCallbackDelay={3000}
               showDeepLink={false}
               buttonText="Pay & Get Data"
+              wagmiConfig={wagmiConfigProp}
             />
           </div>
         </TabsContent>
@@ -116,6 +139,7 @@ export default function Home() {
               onPaymentFailure={handlePaymentFailure}
               showDeepLink={false}
               buttonText="Pay & Search"
+              wagmiConfig={wagmiConfigProp}
             />
           </div>
         </TabsContent>
@@ -142,6 +166,7 @@ export default function Home() {
               onPaymentFailure={handlePaymentFailure}
               showDeepLink="both"
               buttonText="Pay & Submit"
+              wagmiConfig={wagmiConfigProp}
             />
           </div>
         </TabsContent>
@@ -161,6 +186,7 @@ export default function Home() {
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentFailure={handlePaymentFailure}
               showDeepLink={false}
+              wagmiConfig={wagmiConfigProp}
             />
           </div>
         </TabsContent>
