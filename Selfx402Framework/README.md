@@ -13,6 +13,7 @@ Framework for building x402 facilitator servers and Self Protocol validators wit
 
 ✅ Complete x402 payment facilitator implementation
 ✅ Self Protocol integration for proof-of-unique-human verification
+✅ Verification sessions for deep link polling (mobile support) 🆕
 ✅ Deferred payment scheme (x402 PR #426) - 99% gas savings
 ✅ EIP-712 signature verification
 ✅ EIP-3009 USDC settlement on Celo
@@ -178,10 +179,127 @@ Wallet client creation with viem.
 Core facilitator for payment verification and settlement.
 
 ### `@selfx402/framework/self`
-Self Protocol integration (zero-knowledge proof verification).
+Self Protocol integration (zero-knowledge proof verification, verification sessions for mobile deep link polling).
 
 ### `@selfx402/framework/middleware`
 Express/Hono/Fastify middleware adapters (coming soon).
+
+## Verification Sessions (Deep Link Polling - NEW!)
+
+Support for mobile Self Protocol verification via deep links with polling mechanism. Enables verification flow when user clicks "Open Self App" button instead of scanning QR code.
+
+### Database Setup for Verification Sessions
+
+Run this SQL in your Supabase project:
+
+```sql
+CREATE TABLE IF NOT EXISTS verification_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL UNIQUE,
+  vendor_url TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,
+  api_endpoint TEXT,
+  network TEXT NOT NULL DEFAULT 'celo',
+  disclosures JSONB NOT NULL DEFAULT '{}'::jsonb,
+  verified BOOLEAN DEFAULT false,
+  nullifier TEXT,
+  disclosure_results JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  verified_at TIMESTAMP WITH TIME ZONE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  proof_data JSONB,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX idx_verification_sessions_session_id ON verification_sessions(session_id);
+CREATE INDEX idx_verification_sessions_expires ON verification_sessions(expires_at);
+CREATE INDEX idx_verification_sessions_verified ON verification_sessions(verified, expires_at);
+```
+
+### Server-Side: Initialize Verification Sessions
+
+```typescript
+import { VerificationSessionsService } from "selfx402-framework/self";
+
+// Initialize service
+const verificationSessionsService = new VerificationSessionsService(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Create session when widget displays
+const session = await verificationSessionsService.createSession({
+  session_id: crypto.randomUUID(),
+  vendor_url: "https://api.example.com",
+  wallet_address: "0x...",
+  network: "celo",
+  disclosures: { minimumAge: 18, ofac: true },
+  verified: false,
+  expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 min
+});
+
+// Update session after verification completes
+await verificationSessionsService.updateSessionVerified(
+  sessionId,
+  true,
+  nullifier,
+  { ageValid: true, userId: "0x..." },
+  { proof, publicSignals, attestationId }
+);
+
+// Polling endpoint for widget
+app.get("/verify-status/:sessionId", async (req, res) => {
+  const status = await verificationSessionsService.getVerificationStatus(
+    req.params.sessionId
+  );
+  res.json(status);
+});
+```
+
+### Client-Side: Polling for Verification Results
+
+```typescript
+import { useState, useEffect } from "react";
+
+// Start polling after user clicks "Open Self App"
+const pollForVerification = async (sessionId: string) => {
+  const pollInterval = setInterval(async () => {
+    const response = await fetch(
+      `https://facilitator.com/verify-status/${sessionId}`
+    );
+    const status = await response.json();
+
+    if (status.verified) {
+      clearInterval(pollInterval);
+      console.log("Verification successful!", status);
+      // Call onSuccess callback
+    } else if (status.expired) {
+      clearInterval(pollInterval);
+      console.error("Session expired");
+    }
+  }, 2000); // Poll every 2 seconds
+
+  // Timeout after 60 seconds
+  setTimeout(() => clearInterval(pollInterval), 60000);
+};
+```
+
+### How It Works
+
+1. **Widget displays** → Creates session in database with unique ID
+2. **User clicks "Open Self App"** → Deep link opens Self mobile app
+3. **Self app verifies passport** → Sends proof to facilitator `/api/verify`
+4. **Facilitator updates session** → Marks as verified with nullifier
+5. **Widget polls** → Checks `/verify-status/:sessionId` every 2s
+6. **Success** → Widget receives verified status and continues flow
+
+### Benefits
+
+✅ **Mobile-First**: Native mobile app experience (no QR code needed)
+✅ **Real-Time Feedback**: Widget knows when verification completes
+✅ **Database Persistence**: Session state survives server restarts
+✅ **Automatic Cleanup**: Expired sessions auto-deleted
+✅ **Backward Compatible**: QR code flow still works unchanged
 
 ## Deferred Payment Scheme (x402 PR #426 - NEW!)
 
@@ -489,6 +607,7 @@ See [../Docs/DEFERRED-PAYMENTS.md](../Docs/DEFERRED-PAYMENTS.md) for complete de
 ✅ EIP-3009 on-chain settlement
 ✅ **Deferred payment scheme (x402 PR #426 - Option A)** 🆕
 ✅ **Voucher aggregation for micro-payments** 🆕
+✅ **Verification sessions for deep link polling** 🆕
 ✅ Self Protocol integration
 ✅ Nullifier management (Sybil resistance)
 ✅ Multi-network support (Celo mainnet/sepolia)

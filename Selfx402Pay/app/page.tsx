@@ -113,7 +113,7 @@ export default function Home() {
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentFailure={handlePaymentFailure}
               successCallbackDelay={3000}
-              showDeepLink={false}
+              showDeepLink="both"
               buttonText="Pay & Get Data"
               wagmiConfig={wagmiConfigProp}
             />
@@ -137,7 +137,7 @@ export default function Home() {
               queryParams={queryParams}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentFailure={handlePaymentFailure}
-              showDeepLink={false}
+              showDeepLink="both"
               buttonText="Pay & Search"
               wagmiConfig={wagmiConfigProp}
             />
@@ -185,7 +185,7 @@ export default function Home() {
               requestMethod="GET"
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentFailure={handlePaymentFailure}
-              showDeepLink={false}
+              showDeepLink="both"
               wagmiConfig={wagmiConfigProp}
             />
           </div>

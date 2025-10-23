@@ -70,6 +70,14 @@ export interface PaymentFormProps {
   buttonText?: string // Optional custom button text (default: "Sign Payment")
   successCallbackDelay?: number // Delay in milliseconds before calling onPaymentSuccess (default: 2000ms to show animation)
   wagmiConfig: WagmiConfig // Wagmi configuration from parent app (required)
+
+  // NEW: Optional session-based verification for deep link flow (backward compatible)
+  enableDeepLinkPolling?: boolean // Enable polling for deep link verification (default: true if showDeepLink is true/both)
+  autoStartPolling?: boolean // Auto-start polling on mount (useful for copy/paste universal link flow, default: false)
+  pollingInterval?: number // Polling interval in milliseconds (default: 2000ms)
+  pollingTimeout?: number // Total polling timeout in milliseconds (default: 60000ms)
+  facilitatorUrl?: string // Custom facilitator URL for polling (default: from NEXT_PUBLIC_SELF_ENDPOINT)
+  onVerificationSuccess?: (data: { nullifier?: string; disclosureResults?: any }) => void // Called when verification succeeds (QR or deep link)
 }
 
 // EIP-712 domain for USDC transferWithAuthorization
@@ -99,7 +107,14 @@ export function PaymentForm({
   logoUrl = DEFAULT_LOGO_URL,
   buttonText = "Sign Payment",
   successCallbackDelay = 2000,
-  wagmiConfig
+  wagmiConfig,
+  // New props with defaults for backward compatibility
+  enableDeepLinkPolling,
+  autoStartPolling = false,
+  pollingInterval = 2000,
+  pollingTimeout = 60000,
+  facilitatorUrl,
+  onVerificationSuccess
 }: PaymentFormProps) {
   const defaultVendorUrl = vendorUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_VENDOR_API_URL : undefined) || "http://localhost:3000"
   const defaultApiEndpoint = apiEndpoint || "/api/demo"
@@ -118,6 +133,11 @@ export function PaymentForm({
   const [serviceDiscovery, setServiceDiscovery] = useState<X402ServiceDiscovery | null>(null)
   const [isLoadingDiscovery, setIsLoadingDiscovery] = useState(false)
   const [currentVendorUrl] = useState(defaultVendorUrl)
+
+  // NEW: Session-based verification state
+  const [sessionId] = useState(() => crypto.randomUUID())
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollingIntervalRef, setPollingIntervalRef] = useState<NodeJS.Timeout | null>(null)
 
   // Destructure Wagmi config from props
   const { address: walletAddress, isConnected, chainId, signTypedDataAsync } = wagmiConfig
@@ -164,6 +184,34 @@ export function PaymentForm({
       const selfAppName = (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SELF_APP_NAME : undefined) || "Self x402 Pay"
       const selfScope = (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SELF_SCOPE : undefined) || "self-x402-facilitator"
 
+      // Determine if we should enable session polling
+      const shouldEnablePolling = enableDeepLinkPolling !== undefined
+        ? enableDeepLinkPolling
+        : (showDeepLink === true || showDeepLink === 'both' || showDeepLink === 'hide')
+
+      // CRITICAL FIX: userDefinedData must be a simple string (not JSON)
+      // Self Protocol SDK has strict validation on userDefinedData format
+      // Format: "sessionId:vendorUrl" for deep link, or just "vendorUrl" for QR-only
+      const userDefinedData = shouldEnablePolling
+        ? `${sessionId}:${currentVendorUrl}` // Colon-separated (simple string)
+        : currentVendorUrl // Legacy QR flow: just vendor URL
+
+      console.log('[Self App Init] 🎯 Initializing Self Protocol verification')
+      console.log('[Self App Init] 🆔 Session ID:', sessionId)
+      console.log('[Self App Init] 📍 Verification endpoint:', selfEndpoint)
+      console.log('[Self App Init] 🔧 App scope:', selfScope)
+      console.log('[Self App Init] 📦 User defined data (simple string):', userDefinedData)
+      console.log('[Self App Init] 🔄 Polling enabled:', shouldEnablePolling)
+
+      // MINIMAL disclosures - facilitator will fetch full requirements from vendor
+      const disclosures = {
+        minimumAge: 18,
+        ofac: false,
+        excludedCountries: []
+      }
+
+      console.log('[Self App Init] 📋 Minimal disclosures (facilitator fetches full requirements):', disclosures)
+
       const app = new SelfAppBuilder({
         version: 2,
         appName: selfAppName,
@@ -173,24 +221,140 @@ export function PaymentForm({
         userId: walletAddress || address,
         endpointType: "https",
         userIdType: "hex",
-        userDefinedData: currentVendorUrl,
-        disclosures: {
-          minimumAge: 18,
-          ofac: false,
-          excludedCountries: [],
-        }
+        // SIMPLE STRING (not JSON) - Self SDK validation requirement
+        userDefinedData,
+        // MINIMAL disclosures - facilitator handles vendor-specific requirements
+        disclosures: disclosures as any
       }).build()
 
       setSelfApp(app)
-      setUniversalLink(getUniversalLink(app))
+      const link = getUniversalLink(app)
+      setUniversalLink(link)
+      console.log('[Self App Init] ✅ Self app initialized')
+      console.log('[Self App Init] 🔗 Universal link generated:', link)
     } catch (error) {
       console.error("Failed to initialize Self app:", error)
     }
-  }, [excludedCountries, address, walletAddress, currentVendorUrl, logoUrl])
+  }, [excludedCountries, address, walletAddress, currentVendorUrl, logoUrl, sessionId, serviceDiscovery, defaultApiEndpoint, showDeepLink, enableDeepLinkPolling])
 
-  const handleVerificationSuccess = async () => {
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef) {
+        clearInterval(pollingIntervalRef)
+      }
+    }
+  }, [pollingIntervalRef])
+
+  // Auto-start polling on mount (for copy/paste universal link flow)
+  useEffect(() => {
+    if (autoStartPolling && !isVerified && !isPolling) {
+      console.log('[Auto-Polling] 🚀 Starting automatic verification polling (copy/paste flow)')
+      console.log('[Auto-Polling] 🆔 Session ID:', sessionId)
+      startVerificationPolling()
+    }
+  }, [autoStartPolling, sessionId]) // Only run once on mount
+
+  // Start polling for verification status (deep link flow)
+  const startVerificationPolling = async () => {
+    const shouldEnablePolling = enableDeepLinkPolling !== undefined
+      ? enableDeepLinkPolling
+      : (showDeepLink === true || showDeepLink === 'both' || showDeepLink === 'hide')
+
+    if (!shouldEnablePolling) {
+      return // Polling disabled, skip
+    }
+
+    setIsPolling(true)
+    toast.info("Complete verification in Self app...")
+
+    const startTime = Date.now()
+
+    // Get facilitator base URL (remove /api/verify if present)
+    const rawFacilitatorUrl = facilitatorUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SELF_ENDPOINT : undefined) || "https://facilitator.selfx402.xyz"
+    const baseUrl = rawFacilitatorUrl.replace('/api/verify', '') // Remove /api/verify path if present
+
+    console.log('[Deep Link Polling] 🚀 Starting verification polling')
+    console.log('[Deep Link Polling] 📍 Raw facilitator URL:', rawFacilitatorUrl)
+    console.log('[Deep Link Polling] 📍 Clean base URL:', baseUrl)
+    console.log('[Deep Link Polling] 🆔 Session ID:', sessionId)
+    console.log('[Deep Link Polling] ⏱️ Polling interval:', pollingInterval, 'ms')
+    console.log('[Deep Link Polling] ⏰ Polling timeout:', pollingTimeout, 'ms')
+    console.log('[Deep Link Polling] 🎯 Will poll endpoint:', `${baseUrl}/verify-status/${sessionId}`)
+
+    const interval = setInterval(async () => {
+      const elapsed = Date.now() - startTime
+
+      // Check timeout
+      if (elapsed >= pollingTimeout) {
+        clearInterval(interval)
+        setIsPolling(false)
+        setPollingIntervalRef(null)
+        toast.error("Verification timeout. Please scan QR code or try again.")
+        console.log('[Polling] Timeout reached')
+        return
+      }
+
+      try {
+        const statusUrl = `${baseUrl}/verify-status/${sessionId}`
+        console.log('[Deep Link Polling] 🔍 Checking status at:', statusUrl)
+        console.log('[Deep Link Polling] 📊 Elapsed time:', Math.floor(elapsed / 1000), 'seconds')
+
+        const response = await fetch(statusUrl)
+        console.log('[Deep Link Polling] 📡 Response status:', response.status, response.statusText)
+
+        if (!response.ok) {
+          throw new Error(`Polling failed: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        console.log('[Deep Link Polling] 📦 Response data:', data)
+
+        if (data.verified) {
+          clearInterval(interval)
+          setIsPolling(false)
+          setPollingIntervalRef(null)
+          console.log('[Deep Link Polling] ✅ Verification successful!', {
+            nullifier: data.nullifier,
+            disclosureResults: data.disclosure_results
+          })
+
+          // Call verification success handlers
+          handleVerificationSuccessInternal(data.nullifier, data.disclosure_results)
+
+        } else if (data.expired) {
+          clearInterval(interval)
+          setIsPolling(false)
+          setPollingIntervalRef(null)
+          toast.error("Verification session expired. Please try again.")
+          console.log('[Deep Link Polling] ⏰ Session expired')
+        } else {
+          console.log('[Deep Link Polling] ⏳ Still pending, continuing...')
+        }
+
+      } catch (error) {
+        console.error('[Deep Link Polling] ❌ Polling error:', error)
+        // Continue polling on error (network glitch, etc.)
+      }
+    }, pollingInterval)
+
+    setPollingIntervalRef(interval)
+  }
+
+  // Internal verification success handler (called by QR or polling)
+  const handleVerificationSuccessInternal = (nullifier?: string, disclosureResults?: any) => {
     setIsVerified(true)
     toast.success("Identity verified!")
+
+    // Call optional callback with verification details
+    if (onVerificationSuccess) {
+      onVerificationSuccess({ nullifier, disclosureResults })
+    }
+  }
+
+  // QR code success handler (backward compatible)
+  const handleVerificationSuccess = async () => {
+    handleVerificationSuccessInternal()
   }
 
   const handleSign = async () => {
@@ -426,26 +590,46 @@ export function PaymentForm({
                 {(showDeepLink === true || showDeepLink === 'both' || showDeepLink === 'hide') && (
                   <div className="w-full space-y-3">
                     <Button
-                      onClick={() => universalLink && window.open(universalLink, "_blank")}
-                      disabled={!universalLink}
+                      onClick={() => {
+                        if (universalLink) {
+                          console.log('[Deep Link] 🚀 Opening Self App via universal link')
+                          console.log('[Deep Link] 🔗 Universal Link:', universalLink)
+                          console.log('[Deep Link] 🆔 Session ID:', sessionId)
+                          window.open(universalLink, "_blank")
+                          console.log('[Deep Link] ⏳ Starting verification polling...')
+                          startVerificationPolling() // NEW: Start polling when deep link opened
+                        }
+                      }}
+                      disabled={!universalLink || isPolling}
                       size="lg"
                       className="w-full h-14 text-lg"
                     >
-                      Open Self App
+                      {isPolling ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Waiting for verification...
+                        </>
+                      ) : (
+                        "Open Self App"
+                      )}
                     </Button>
                     <Button
                       onClick={() => {
                         if (universalLink) {
                           navigator.clipboard.writeText(universalLink)
-                          toast.success("Link copied!")
+                          toast.success("Link copied! Complete verification in Self app...")
+                          console.log('[Copy Link] 📋 Universal link copied to clipboard')
+                          console.log('[Copy Link] 🆔 Session ID:', sessionId)
+                          console.log('[Copy Link] ⏳ Starting verification polling...')
+                          startVerificationPolling() // NEW: Start polling when link copied
                         }
                       }}
-                      disabled={!universalLink}
+                      disabled={!universalLink || isPolling}
                       variant="outline"
                       size="lg"
                       className="w-full h-12"
                     >
-                      Copy Universal Link
+                      {isPolling ? "Waiting for verification..." : "Copy Universal Link"}
                     </Button>
                   </div>
                 )}

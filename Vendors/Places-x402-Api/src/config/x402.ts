@@ -125,8 +125,8 @@ export const serviceDiscovery = {
 
     requirements: {
       minimumAge: 18,
-      excludedCountries: ["IRN", "PRK", "RUS", "SYR"],
-      ofac: true,
+      excludedCountries: [], // MUST match widget config (empty array)
+      ofac: false, // MUST match widget config
       documentTypes: ["Passport", "EU ID Card", "Aadhaar"]
     },
 

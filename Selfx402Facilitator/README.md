@@ -16,6 +16,7 @@ This facilitator enables:
 - ✅ x402 standard payment verification and settlement
 - ✅ **Deferred payment scheme (x402 PR #426 - Option A)** - NEW! 🆕
 - ✅ **Voucher aggregation for micro-payments** - NEW! 🆕
+- ✅ **Verification sessions for deep link polling** - NEW! 🆕
 - ✅ Self Protocol zero-knowledge proof validation
 - ✅ EIP-3009 transferWithAuthorization (gasless USDC transfers)
 - ✅ Nullifier management (one passport = one verification)
@@ -49,6 +50,7 @@ npm install
    - Creates `nullifiers` table for Self Protocol verification
    - Creates `vouchers` table for off-chain payment vouchers (x402 PR #426)
    - Creates `settlements` table for on-chain settlement records (x402 PR #426)
+   - Creates `verification_sessions` table for deep link polling 🆕
    - All tables include proper indexes, constraints, and RLS policies
 
 **Get API Credentials:**

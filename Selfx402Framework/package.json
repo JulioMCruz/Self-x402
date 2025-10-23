@@ -1,6 +1,6 @@
 {
   "name": "selfx402-framework",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Framework for building x402 facilitator servers and Self Protocol validators with minimal code",
   "type": "module",
   "main": "./dist/index.js",

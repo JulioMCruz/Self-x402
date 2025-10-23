@@ -27,6 +27,7 @@ Premium Human:  $0.0005 per API call (2000x cheaper)
 1. **Cryptographic proof of unique humanity** (not just "I'm human", but "I'm a unique human with a real passport")
 2. **Instant USDC micropayments** on Celo blockchain using x402 protocol
 3. **Deferred payment scheme (NEW!)** - Aggregate micro-payments to reduce gas costs from 2000% to 2%
+4. **Mobile-first verification (NEW!)** - Deep link polling for seamless mobile Self app integration
 
 ---
 
