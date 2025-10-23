@@ -728,6 +728,136 @@ Health check endpoint with network information.
 }
 ```
 
+## Self Protocol Implementation Details
+
+### userContextData Encoding and Decoding
+
+**Critical Discovery**: Self Protocol sends `userContextData` as hex-encoded bytes with EVM padding, not as a plain string.
+
+**Example Raw Data**:
+```
+000000000000000000000000000000000000000000000000000000000000a4ec000000000000000000000000c2564e41b7f5cb66d2d99466450cfebce9e8228f63623137633835332d353135612d346362622d623030302d6138653966616261306536613a687474703a2f2f6c6f63616c686f73743a33303030
+```
+
+**Decoding Process** ([index.ts:331-387](index.ts#L331-L387)):
+
+```typescript
+// 1. Decode hex to bytes (skip '0x' prefix if present)
+const hexString = userContextData.startsWith('0x')
+  ? userContextData.slice(2)
+  : userContextData;
+const bytes = Buffer.from(hexString, 'hex');
+
+// 2. Find first sequence of printable ASCII characters (skip padding)
+let textStart = 0;
+for (let i = 0; i < bytes.length - 4; i++) {
+  const isPrintable = bytes[i] >= 0x20 && bytes[i] <= 0x7E;
+  const nextIsPrintable = bytes[i+1] >= 0x20 && bytes[i+1] <= 0x7E;
+  const next2IsPrintable = bytes[i+2] >= 0x20 && bytes[i+2] <= 0x7E;
+  const next3IsPrintable = bytes[i+3] >= 0x20 && bytes[i+3] <= 0x7E;
+
+  if (isPrintable && nextIsPrintable && next2IsPrintable && next3IsPrintable) {
+    textStart = i;
+    break;
+  }
+}
+
+// 3. Extract text portion, remove null bytes
+const textBytes = bytes.slice(textStart);
+const rawText = textBytes.toString('utf8');
+const decodedUserContextData = rawText.replace(/\0/g, '').replace(/[^\x20-\x7E]/g, '');
+
+// Result: "cb17c853-515a-4cbb-b000-a8e9faba0e6a:http://localhost:3000"
+```
+
+**Format After Decoding**:
+- **Deep Link Polling**: `"sessionId:vendorUrl"` (colon-separated)
+- **QR-Only**: `"vendorUrl"` (legacy flow without polling)
+
+**Session Creation** ([index.ts:425-452](index.ts#L425-L452)):
+
+After decoding, if a session ID is present, the facilitator creates a verification session in the database:
+
+```typescript
+if (sessionId && verificationSessionsService) {
+  const session = await verificationSessionsService.createSession({
+    session_id: sessionId,
+    vendor_url: vendorUrl,
+    verified: false,
+    expires_at: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+  });
+}
+```
+
+**Polling Endpoint** ([index.ts:528-564](index.ts#L528-L564)):
+
+The widget polls `GET /verify-status/:sessionId` every 2 seconds to detect when verification completes:
+
+```typescript
+app.get("/verify-status/:sessionId", async (req, res) => {
+  const { sessionId } = req.params;
+  const status = await verificationSessionsService.getVerificationStatus(sessionId);
+
+  res.json({
+    verified: status.verified,
+    pending: status.pending,
+    nullifier: status.nullifier,
+    expired: status.expired
+  });
+});
+```
+
+### Configuration Matching Requirement
+
+**CRITICAL**: Widget disclosure config MUST match vendor `.well-known/x402` config exactly, or Self Protocol verification will fail with `ConfigMismatchError`.
+
+**Why**: Self Protocol encodes disclosure requirements (age, countries, OFAC) into the ZK proof circuit when the QR code is created. The backend verifier must use the EXACT same config to validate the proof.
+
+**Example Mismatch Error**:
+```
+ConfigMismatchError: [InvalidForbiddenCountriesList]:
+Forbidden countries list in config does not match with the one in the circuit
+Circuit:
+Config: IRN, PRK, RUS, SYR
+```
+
+**Solution**: Ensure widget and vendor configs match:
+
+**Widget** ([Selfx402PayWidget/src/components/payment-form.tsx:206-211](../Selfx402PayWidget/src/components/payment-form.tsx#L206-L211)):
+```typescript
+const disclosures = {
+  minimumAge: 18,
+  ofac: false,
+  excludedCountries: []  // MUST match vendor
+}
+```
+
+**Vendor** ([Vendors/Places-x402-Api/src/config/x402.ts:126-131](../Vendors/Places-x402-Api/src/config/x402.ts#L126-L131)):
+```typescript
+requirements: {
+  minimumAge: 18,
+  excludedCountries: [],  // MUST match widget
+  ofac: false             // MUST match widget
+}
+```
+
+The facilitator dynamically fetches vendor requirements from `/.well-known/x402` and uses them for verification:
+
+```typescript
+const discoveryResponse = await fetch(`${vendorUrl}/.well-known/x402`);
+const discoveryData = await discoveryResponse.json();
+const vendorDisclosures = discoveryData.verification?.requirements;
+
+const verifier = new SelfBackendVerifier(
+  selfScope,
+  selfEndpoint,
+  false,  // mockPassport: false for mainnet
+  AllIds,
+  new DefaultConfigStore(vendorDisclosures || defaultConfig),
+  "hex"
+);
+```
+
 ## Testing
 
 ### Test on Celo Mainnet

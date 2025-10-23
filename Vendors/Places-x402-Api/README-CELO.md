@@ -236,6 +236,91 @@ The official x402-express and x402-hono packages are designed for Base networks 
 
 This is exactly what we've built for Celo! 🚀
 
+## Self Protocol Configuration 🆕
+
+### Critical: Disclosure Config Matching
+
+**IMPORTANT**: The widget disclosure config MUST exactly match your vendor API's `.well-known/x402` verification requirements, or Self Protocol verification will fail with `ConfigMismatchError`.
+
+**Why**: Self Protocol encodes disclosure requirements (minimumAge, excludedCountries, OFAC) into the ZK proof circuit when creating the QR code. The backend verifier must use the EXACT same config to validate the proof.
+
+### Configuration Files
+
+**Vendor API** ([src/config/x402.ts:126-131](src/config/x402.ts#L126-L131)):
+```typescript
+verification: {
+  requirements: {
+    minimumAge: 18,
+    excludedCountries: [],  // MUST match widget
+    ofac: false,            // MUST match widget
+    documentTypes: ["Passport", "EU ID Card", "Aadhaar"]
+  }
+}
+```
+
+**Widget Config** (in consumer app using `selfx402-pay-widget`):
+```typescript
+const disclosures = {
+  minimumAge: 18,
+  ofac: false,
+  excludedCountries: []  // MUST match vendor API
+}
+```
+
+### Common Configuration Errors
+
+**❌ Mismatch Example**:
+```typescript
+// Widget uses empty array
+excludedCountries: []
+
+// Vendor API uses country list
+excludedCountries: ["IRN", "PRK", "RUS", "SYR"]
+
+// Result: ConfigMismatchError during verification ❌
+```
+
+**✅ Correct Matching**:
+```typescript
+// Both widget and vendor use same config
+excludedCountries: []  // Both empty
+ofac: false            // Both false
+minimumAge: 18         // Both 18
+```
+
+### Error Message
+
+If configs don't match, you'll see:
+```
+ConfigMismatchError: [InvalidForbiddenCountriesList]:
+Forbidden countries list in config does not match with the one in the circuit
+Circuit:
+Config: IRN, PRK, RUS, SYR
+```
+
+### Service Discovery Endpoint
+
+Your API exposes verification requirements at `/.well-known/x402`:
+
+```bash
+curl http://localhost:3000/.well-known/x402
+```
+
+```json
+{
+  "verification": {
+    "requirements": {
+      "minimumAge": 18,
+      "excludedCountries": [],
+      "ofac": false,
+      "documentTypes": ["Passport", "EU ID Card", "Aadhaar"]
+    }
+  }
+}
+```
+
+The Selfx402Facilitator automatically fetches these requirements and uses them for verification.
+
 ## Documentation
 
 - **[Architecture Guide](CELO-X402-ARCHITECTURE.md)** - Detailed technical architecture
