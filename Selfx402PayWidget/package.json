@@ -1,6 +1,6 @@
 {
   "name": "selfx402-pay-widget",
-  "version": "1.0.2",
+  "version": "1.0.7",
   "description": "Self Protocol + x402 payment widget for React applications - Proof-of-unique-human verification with gasless USDC payments on Celo",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

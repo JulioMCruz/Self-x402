@@ -17,6 +17,7 @@ A reusable React component library for integrating Self Protocol identity verifi
 - 🎨 **Customizable UI** - Built with Radix UI and Tailwind CSS
 - 📱 **Mobile-First** - Optimized for Self mobile app integration
 - 🔄 **QR & Deep Link** - Multiple verification methods (QR code, universal links)
+- 🔄 **Deep Link Polling** - Session-based verification status polling for mobile flows 🆕
 - 🔥 **Production Ready** - TypeScript, ESM/CJS dual format, tree-shakeable
 
 ## Installation

@@ -19,6 +19,7 @@ import {
   SelfBackendVerifier,
   AllIds,
   DefaultConfigStore,
+  VerificationSessionsService,
 } from "selfx402-framework/self";
 import { VoucherDatabaseService } from "selfx402-framework";
 import type { PaymentEnvelope } from "selfx402-framework/core";
@@ -34,6 +35,7 @@ const PORT = process.env.PORT || 3005;
 // Initialize Database Service (Supabase)
 let database: DatabaseService | undefined;
 let voucherDatabase: VoucherDatabaseService | undefined;
+let verificationSessionsService: VerificationSessionsService | undefined;
 
 try {
   // Initialize Self Protocol database
@@ -58,11 +60,19 @@ try {
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
   });
   console.log('✅ Voucher database initialized (deferred payments)');
+
+  // Initialize Verification Sessions service (for deep link polling)
+  verificationSessionsService = new VerificationSessionsService(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  console.log('✅ Verification sessions service initialized (deep link polling)');
 } catch (error) {
   console.error('❌ Failed to initialize database:', error);
   console.warn('⚠️  Running without database - nullifiers and vouchers will not persist');
   database = undefined;
   voucherDatabase = undefined;
+  verificationSessionsService = undefined;
 }
 
 // Initialize Self Protocol Verifier
@@ -103,6 +113,14 @@ const celoSepoliaFacilitator = new Facilitator({
   enableSelfProtocol: true,
 });
 
+// Request logging middleware - FIRST
+app.use((req, res, next) => {
+  console.log(`\n🌐 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  console.log(`   Origin: ${req.headers.origin || 'none'}`);
+  console.log(`   IP: ${req.ip}`);
+  next();
+});
+
 // CORS Configuration
 app.use((req, res, next) => {
   const allowedOrigins = [
@@ -122,6 +140,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
+    console.log(`   ✅ OPTIONS preflight for ${req.path}`);
     return res.status(200).end();
   }
 
@@ -265,6 +284,19 @@ app.get("/supported", (_req: Request, res: Response) => {
 
 // POST /api/verify - Self Protocol QR verification endpoint
 app.post("/api/verify", async (req, res) => {
+  // Declare sessionId in outer scope for catch block access
+  let sessionId: string | null = null;
+
+  // Log IMMEDIATELY when request is received (before any processing)
+  console.log("\n\n");
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("🔵 /api/verify ENDPOINT HIT - " + new Date().toISOString());
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("📍 Request received from:", req.ip);
+  console.log("📡 Request headers:", JSON.stringify(req.headers, null, 2));
+  console.log("📦 Raw request body:", JSON.stringify(req.body, null, 2));
+  console.log("═══════════════════════════════════════════════════════════");
+
   try {
     console.log("********************************************************");
     console.log("📥 Self Protocol Verification Request");
@@ -293,24 +325,130 @@ app.post("/api/verify", async (req, res) => {
     console.log("  - Attestation ID:", attestationId);
     console.log("  - Proof length:", JSON.stringify(proof).length, "chars");
     console.log("  - Public signals count:", publicSignals.length);
-    console.log("  - User context data (vendor URL):", userContextData);
+    console.log("  - Raw userContextData:", userContextData);
+    console.log("  - userContextData type:", typeof userContextData);
 
-    // Fetch vendor's disclosure requirements from /.well-known/x402
+    // CRITICAL: Self Protocol sends userContextData as hex-encoded bytes
+    // Format: Starts with length prefix + padding, then the actual hex-encoded UTF-8 string
+    // We need to extract just the readable UTF-8 portion
+    let decodedUserContextData: string;
+
+    if (typeof userContextData === 'string') {
+      // Remove '0x' prefix if present
+      const hexString = userContextData.startsWith('0x') ? userContextData.slice(2) : userContextData;
+
+      // Check if this looks like hex (all chars are 0-9a-f)
+      const isHex = /^[0-9a-f]+$/i.test(hexString);
+
+      if (isHex && hexString.length > 0) {
+        console.log("🔧 Decoding hex userContextData (length:", hexString.length, "chars)...");
+
+        try {
+          // Decode hex to bytes
+          const bytes = Buffer.from(hexString, 'hex');
+          console.log("  - Decoded to", bytes.length, "bytes");
+
+          // Find the start of readable ASCII/UTF-8 text (skip padding/length prefix)
+          // Look for the first sequence of printable ASCII characters
+          let textStart = 0;
+          for (let i = 0; i < bytes.length - 4; i++) {
+            // Check if we have at least 4 consecutive printable ASCII chars (likely start of UUID/URL)
+            const isPrintable = bytes[i] >= 0x20 && bytes[i] <= 0x7E;
+            const nextIsPrintable = bytes[i+1] >= 0x20 && bytes[i+1] <= 0x7E;
+            const next2IsPrintable = bytes[i+2] >= 0x20 && bytes[i+2] <= 0x7E;
+            const next3IsPrintable = bytes[i+3] >= 0x20 && bytes[i+3] <= 0x7E;
+
+            if (isPrintable && nextIsPrintable && next2IsPrintable && next3IsPrintable) {
+              textStart = i;
+              break;
+            }
+          }
+
+          // Extract the text portion
+          const textBytes = bytes.slice(textStart);
+          const rawText = textBytes.toString('utf8');
+
+          // Clean up: remove null bytes and non-printable characters
+          decodedUserContextData = rawText.replace(/\0/g, '').replace(/[^\x20-\x7E]/g, '');
+          console.log("✅ Decoded userContextData:", decodedUserContextData);
+
+        } catch (error) {
+          console.warn("⚠️  Hex decode failed, using raw value:", error);
+          decodedUserContextData = userContextData;
+        }
+      } else {
+        // Already a plain string (testing mode or legacy)
+        decodedUserContextData = userContextData;
+        console.log("ℹ️  Using plain string userContextData (no decoding needed)");
+      }
+    } else {
+      decodedUserContextData = String(userContextData);
+      console.log("⚠️  Converting non-string userContextData to string");
+    }
+
+    // Parse decodedUserContextData (simple string format)
+    // Format: "sessionId:vendorUrl" for deep link polling, or just "vendorUrl" for QR-only
+    let vendorUrl: string;
+
+    if (decodedUserContextData.includes(':')) {
+      // Deep link polling format: "sessionId:vendorUrl"
+      const parts = decodedUserContextData.split(':');
+      sessionId = parts[0]; // Update outer scope variable
+      vendorUrl = parts.slice(1).join(':'); // Handle URLs with colons (http://)
+      console.log("  - Session-based verification (deep link polling)");
+      console.log("  - Session ID:", sessionId);
+      console.log("  - Vendor URL:", vendorUrl);
+    } else {
+      // Legacy QR code flow: just vendor URL
+      vendorUrl = decodedUserContextData;
+      console.log("  - Legacy verification (QR code flow)");
+      console.log("  - Vendor URL:", vendorUrl);
+    }
+
+    // Fetch vendor's disclosure requirements from /.well-known/x402 FIRST
     let vendorDisclosures: any = null;
     try {
-      const vendorUrl = userContextData;
-      console.log(`Fetching disclosure requirements from ${vendorUrl}/.well-known/x402...`);
+      console.log(`🔍 Fetching disclosure requirements from ${vendorUrl}/.well-known/x402...`);
 
       const discoveryResponse = await fetch(`${vendorUrl}/.well-known/x402`);
       if (discoveryResponse.ok) {
         const discoveryData = await discoveryResponse.json() as any;
         vendorDisclosures = discoveryData.verification?.requirements;
-        console.log("Vendor disclosure requirements:", vendorDisclosures);
+        console.log("✅ Vendor disclosure requirements:", vendorDisclosures);
       } else {
-        console.warn("Failed to fetch vendor disclosure requirements, using defaults");
+        console.warn("⚠️  Failed to fetch vendor disclosure requirements, using defaults");
       }
     } catch (error) {
-      console.warn("Error fetching vendor disclosures, using defaults:", error);
+      console.warn("⚠️  Error fetching vendor disclosures, using defaults:", error);
+    }
+
+    // Create verification session if session ID provided and service available
+    if (sessionId && verificationSessionsService) {
+      console.log("📝 Creating verification session in database...");
+      console.log("   Session ID:", sessionId);
+      console.log("   Vendor URL:", vendorUrl);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+
+      const session = await verificationSessionsService.createSession({
+        session_id: sessionId,
+        vendor_url: vendorUrl,
+        wallet_address: '', // Not needed for verification
+        api_endpoint: '', // Not needed for verification
+        network: 'celo',
+        disclosures: vendorDisclosures || {},
+        verified: false,
+        expires_at: expiresAt.toISOString(),
+      });
+
+      if (session) {
+        console.log("✅ Session created successfully (ID:", session.id, ")");
+      } else {
+        console.warn("⚠️  Failed to create session in database");
+      }
+    } else {
+      console.log("ℹ️  Session creation skipped:");
+      console.log("   - Has session ID:", !!sessionId);
+      console.log("   - Has service:", !!verificationSessionsService);
     }
 
     // Create dynamic verifier with vendor's disclosure requirements
@@ -339,6 +477,12 @@ app.post("/api/verify", async (req, res) => {
     );
 
     console.log("Verifying with SelfBackendVerifier...");
+    console.log("🔑 Verification parameters:");
+    console.log("  - attestationId:", attestationId);
+    console.log("  - proof type:", typeof proof);
+    console.log("  - publicSignals type:", typeof publicSignals);
+    console.log("  - userContextData (raw):", userContextData);
+    console.log("  - userContextData type:", typeof userContextData);
 
     let result: any;
     try {
@@ -353,6 +497,7 @@ app.post("/api/verify", async (req, res) => {
       console.error("  - Type:", error instanceof Error ? error.constructor.name : typeof error);
       console.error("  - Message:", error instanceof Error ? error.message : String(error));
       console.error("  - Stack:", error instanceof Error ? error.stack : "N/A");
+      console.error("  - Full error object:", JSON.stringify(error, null, 2));
 
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes("Scope") || errorMessage.includes("scope")) {
@@ -375,11 +520,47 @@ app.post("/api/verify", async (req, res) => {
     if (!isValid || !isMinimumAgeValid) {
       let reason = "Verification failed";
       if (!isMinimumAgeValid) reason = "Minimum age verification failed";
+
+      // Update session with failed verification if session ID provided
+      if (sessionId && verificationSessionsService) {
+        await verificationSessionsService.updateSessionVerified(
+          sessionId,
+          false,
+          undefined,
+          { error: reason }
+        );
+      }
+
       return res.status(200).json({
         status: "error",
         result: false,
         reason,
       });
+    }
+
+    // Update session with successful verification results if session ID provided
+    if (sessionId && verificationSessionsService) {
+      console.log("📝 Updating session with verification results...");
+
+      const disclosureResults = {
+        ageValid: isMinimumAgeValid,
+        userId: result.userId,
+        verifiedAt: new Date().toISOString(),
+      };
+
+      const updated = await verificationSessionsService.updateSessionVerified(
+        sessionId,
+        true,
+        result.nullifier,
+        disclosureResults,
+        { proof, publicSignals, attestationId }
+      );
+
+      if (updated) {
+        console.log("✅ Session updated with verification results");
+      } else {
+        console.warn("⚠️  Failed to update session");
+      }
     }
 
     return res.status(200).json({
@@ -388,13 +569,85 @@ app.post("/api/verify", async (req, res) => {
       message: 'Self verification successful',
       data: {
         userId: result.userId,
+        sessionId: sessionId || undefined,
       },
     });
   } catch (error) {
+    // Update session with error if session ID provided
+    if (sessionId && verificationSessionsService) {
+      await verificationSessionsService.updateSessionVerified(
+        sessionId,
+        false,
+        undefined,
+        { error: error instanceof Error ? error.message : "Unknown error" }
+      );
+    }
+
     return res.status(200).json({
       status: "error",
       result: false,
       reason: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+// DEBUG: Get all recent sessions (temporary for debugging)
+app.get("/debug/sessions", async (_req: Request, res: Response) => {
+  if (!verificationSessionsService) {
+    return res.json({ error: "Database not available" });
+  }
+
+  try {
+    const { data, error } = await (verificationSessionsService as any).supabase
+      .from("verification_sessions")
+      .select("session_id, vendor_url, verified, created_at, expires_at")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      return res.json({ error: error.message });
+    }
+
+    res.json({ sessions: data, count: data?.length || 0 });
+  } catch (error) {
+    res.json({ error: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
+// GET /verify-status/:sessionId - Polling endpoint for deep link verification
+app.get("/verify-status/:sessionId", async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+
+    console.log("\n🔍 [Polling] GET /verify-status/" + sessionId);
+    console.log("   Origin:", req.headers.origin);
+    console.log("   IP:", req.ip);
+
+    if (!verificationSessionsService) {
+      console.log("   ⚠️  Database service not available");
+      return res.status(503).json({
+        verified: false,
+        pending: true,
+        message: "Verification sessions service not available (database required)",
+      });
+    }
+
+    const status = await verificationSessionsService.getVerificationStatus(sessionId);
+
+    console.log("   📊 Status:", {
+      verified: status.verified,
+      pending: status.pending,
+      expired: status.expired,
+      hasNullifier: !!status.nullifier
+    });
+
+    res.json(status);
+  } catch (error) {
+    console.error("   ❌ Verification status error:", error);
+    res.status(500).json({
+      verified: false,
+      pending: true,
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -701,14 +954,16 @@ app.listen(PORT, () => {
   console.log(`🔐 Self Protocol: Enabled (proof-of-unique-human verification)`);
   console.log(`💾 Database: ${database ? 'Supabase (connected)' : 'In-memory mode'}`);
   console.log(`📦 Deferred Payments: ${voucherDatabase ? 'Enabled (x402 PR #426)' : 'Disabled (database required)'}`);
+  console.log(`🔄 Deep Link Polling: ${verificationSessionsService ? 'Enabled' : 'Disabled (database required)'}`);
   console.log(`\nAvailable endpoints:`);
-  console.log(`  GET  /supported     - x402 supported payment kinds`);
-  console.log(`  POST /verify        - x402 standard payment verification`);
-  console.log(`  POST /verify-celo   - Celo payment + Self verification`);
-  console.log(`  POST /settle        - x402 standard payment settlement`);
-  console.log(`  POST /settle-celo   - Celo payment settlement`);
-  console.log(`  POST /api/verify    - Self QR verification endpoint`);
-  console.log(`  GET  /health        - Health check`);
+  console.log(`  GET  /supported                  - x402 supported payment kinds`);
+  console.log(`  POST /verify                     - x402 standard payment verification`);
+  console.log(`  POST /verify-celo                - Celo payment + Self verification`);
+  console.log(`  POST /settle                     - x402 standard payment settlement`);
+  console.log(`  POST /settle-celo                - Celo payment settlement`);
+  console.log(`  POST /api/verify                 - Self QR verification endpoint`);
+  console.log(`  GET  /verify-status/:sessionId   - Polling endpoint for deep link verification`);
+  console.log(`  GET  /health                     - Health check`);
   if (voucherDatabase) {
     console.log(`\nDeferred payment endpoints (x402 PR #426 - Option A):`);
     console.log(`  POST /deferred/verify         - Verify and store voucher`);
