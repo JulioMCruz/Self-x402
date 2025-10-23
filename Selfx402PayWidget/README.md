@@ -155,10 +155,88 @@ NEXT_PUBLIC_VENDOR_API_URL=https://api.vendor.com
 ## How It Works
 
 1. **Service Discovery** - Fetches payment configuration from vendor's `/.well-known/x402` endpoint
-2. **Self Verification** - User scans QR code with Self mobile app to prove unique humanity
-3. **Payment Authorization** - User signs EIP-712 typed data for USDC transfer
-4. **Settlement** - Facilitator executes gasless USDC transfer via EIP-3009
-5. **API Access** - Protected API endpoint returns data after payment verification
+2. **Self Verification** - User scans QR code or opens deep link with Self mobile app to prove unique humanity
+3. **Deep Link Polling** - Widget polls facilitator for verification status (mobile flows) 🆕
+4. **Payment Authorization** - User signs EIP-712 typed data for USDC transfer
+5. **Settlement** - Facilitator executes gasless USDC transfer via EIP-3009
+6. **API Access** - Protected API endpoint returns data after payment verification
+
+## Deep Link Verification Flow 🆕
+
+**Mobile-First Architecture**: Users can copy a universal link, paste on their phone, complete verification in the Self app, and have the web UI automatically detect completion.
+
+**Two Verification Methods**:
+
+### QR Code (Traditional)
+1. Widget displays QR code on screen
+2. User scans with Self mobile app
+3. Proof sent directly to facilitator
+4. Widget receives success callback
+5. "Pay & Submit" button enabled
+
+### Universal Link (New!)
+1. Widget generates session ID and universal link
+2. User clicks "Copy Universal Link" button
+3. Widget starts polling facilitator every 2 seconds
+4. User pastes link in phone browser, opens Self app
+5. User completes verification (passport NFC → ZK proof)
+6. Facilitator receives proof, updates session in database
+7. Widget polling detects `{verified: true}`
+8. "Pay & Submit" button enabled automatically
+
+**Key Features**:
+- ✅ **Seamless Mobile UX** - No need to keep web page visible during verification
+- ✅ **Real-time Status** - 2-second polling interval for quick feedback
+- ✅ **Session Persistence** - Verification state stored in database (5-minute expiry)
+- ✅ **Automatic Detection** - UI updates automatically when verification completes
+
+**Implementation Details**:
+
+**Session Format** ([src/components/payment-form.tsx:195-197](src/components/payment-form.tsx#L195-L197)):
+```typescript
+// userDefinedData format: "sessionId:vendorUrl"
+const userDefinedData = `${sessionId}:${vendorUrl}`
+```
+
+**Polling Logic** ([src/components/payment-form.tsx:616-633](src/components/payment-form.tsx#L616-L633)):
+```typescript
+<Button onClick={() => {
+  if (universalLink) {
+    navigator.clipboard.writeText(universalLink)
+    toast.success("Link copied! Complete verification in Self app...")
+    startVerificationPolling() // Start polling immediately
+  }
+}}>
+  {isPolling ? "Waiting for verification..." : "Copy Universal Link"}
+</Button>
+```
+
+**Facilitator Integration**:
+- Receives hex-encoded `userContextData` from Self Protocol
+- Decodes to extract session ID and vendor URL
+- Creates verification session in database
+- Polling endpoint returns session status: `GET /verify-status/:sessionId`
+
+**Configuration Requirement**:
+Widget disclosure config MUST match vendor `.well-known/x402` config:
+
+```typescript
+// Widget config (src/components/payment-form.tsx:206-211)
+const disclosures = {
+  minimumAge: 18,
+  ofac: false,
+  excludedCountries: []  // MUST match vendor
+}
+
+// Vendor config (vendor/.well-known/x402)
+requirements: {
+  minimumAge: 18,
+  excludedCountries: [],  // MUST match widget
+  ofac: false             // MUST match widget
+}
+```
+
+Mismatched configs cause `ConfigMismatchError` because Self Protocol encodes requirements in the ZK proof circuit.
 
 ## Network Support
 

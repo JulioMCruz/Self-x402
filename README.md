@@ -489,6 +489,62 @@ sequenceDiagram
 
 ---
 
+## 🔧 Technical Implementation Notes
+
+### Self Protocol userContextData Encoding
+
+**Critical Discovery**: Self Protocol sends `userContextData` as hex-encoded bytes with EVM padding:
+
+```
+Raw hex: 000000000000000000000000000000000000000000000000000000000000a4ec000000000000000000000000c2564e41b7f5cb66d2d99466450cfebce9e8228f63623137633835332d353135612d346362622d623030302d6138653966616261306536613a687474703a2f2f6c6f63616c686f73743a33303030
+
+Decoded: cb17c853-515a-4cbb-b000-a8e9faba0e6a:http://localhost:3000
+```
+
+**Implementation** ([Selfx402Facilitator/index.ts:331-387](Selfx402Facilitator/index.ts#L331-L387)):
+1. Decode hex to bytes
+2. Find first sequence of printable ASCII characters (skip padding)
+3. Extract text portion, remove null bytes
+4. Parse format: `"sessionId:vendorUrl"` for polling, or just `"vendorUrl"` for QR-only
+
+### Deep Link Verification Flow
+
+**Mobile-First Architecture**: Users can copy a universal link, paste on their phone, complete verification, and have the web UI automatically detect completion.
+
+**Key Components**:
+- **Widget** ([Selfx402PayWidget/src/components/payment-form.tsx:616-633](Selfx402PayWidget/src/components/payment-form.tsx#L616-L633)): Starts polling when "Copy Universal Link" is clicked
+- **Facilitator** ([Selfx402Facilitator/index.ts:425-452](Selfx402Facilitator/index.ts#L425-L452)): Creates verification session in database after decoding userContextData
+- **Polling Endpoint** ([Selfx402Facilitator/index.ts:528-564](Selfx402Facilitator/index.ts#L528-L564)): Returns verification status every 2 seconds
+
+**Session Format**: Simple string `"sessionId:vendorUrl"` passed in `userDefinedData` when creating QR code
+
+### Configuration Matching Requirement
+
+**CRITICAL**: Widget disclosure config MUST match vendor `.well-known/x402` config or verification will fail:
+
+**Widget Config** ([Selfx402PayWidget/src/components/payment-form.tsx:206-211](Selfx402PayWidget/src/components/payment-form.tsx#L206-L211)):
+```typescript
+const disclosures = {
+  minimumAge: 18,
+  ofac: false,
+  excludedCountries: []  // MUST match vendor
+}
+```
+
+**Vendor Config** ([Vendors/Places-x402-Api/src/config/x402.ts:126-131](Vendors/Places-x402-Api/src/config/x402.ts#L126-L131)):
+```typescript
+requirements: {
+  minimumAge: 18,
+  excludedCountries: [],  // MUST match widget
+  ofac: false,            // MUST match widget
+  documentTypes: ["Passport", "EU ID Card", "Aadhaar"]
+}
+```
+
+**Reason**: Self Protocol encodes disclosure requirements in the ZK proof circuit. Mismatched configs cause `ConfigMismatchError`.
+
+---
+
 ## 📚 Documentation
 
 ### Core Documentation
@@ -530,10 +586,15 @@ sequenceDiagram
 - ✅ Product definition and architecture
 - ✅ **Deferred payment scheme (x402 PR #426 - Option A)** 🆕
 - ✅ **Voucher database and aggregation system** 🆕
+- ✅ **Self Protocol QR code verification** 🆕
+- ✅ **Deep link polling for mobile verification** 🆕
+- ✅ **Hex userContextData decoding** 🆕
+- ✅ **Verification session tracking** 🆕
+- ✅ **Published npm packages (selfx402-framework, selfx402-pay-widget)** 🆕
 
 ### In Progress 🚧
 
-- 🚧 Self Protocol integration (QR code, proof verification)
+- 🚧 x402 payment integration with Self verification
 - 🚧 Nullifier database implementation
 - 🚧 Multi-tier pricing engine
 - 🚧 Marketplace frontend MVP
